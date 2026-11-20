@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>Recent Remote Jobs</h1>
+    <p class="sub">Classic LinkedIn search · newest first</p>
+  </header>
+
+  <label class="field">
+    <span>Keywords <small>(supports OR, NOT, "quotes")</small></span>
+    <input id="keywords" type="text" />
+  </label>
+
+  <label class="field">
+    <span>Location <small>(e.g. United States, Canada, Worldwide)</small></span>
+    <input id="location" type="text" />
+  </label>
+
+  <div class="field">
+    <span>Posted within</span>
+    <div class="chips" id="time">
+      <button data-v="900">15 min</button>
+      <button data-v="3600">1 hr</button>
+      <button data-v="10800">3 hr</button>
+      <button data-v="21600">6 hr</button>
+      <button data-v="43200">12 hr</button>
+      <button data-v="86400">24 hr</button>
+      <button data-v="259200">3 days</button>
+      <button data-v="604800">Week</button>
+      <button data-v="0">Any</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <span>Work type</span>
+    <div class="checks">
+      <label><input type="checkbox" name="workTypes" value="2" /> Remote</label>
+      <label><input type="checkbox" name="workTypes" value="3" /> Hybrid</label>
+      <label><input type="checkbox" name="workTypes" value="1" /> On-site</label>
+    </div>
+  </div>
+
+  <details>
+    <summary>More filters</summary>
+    <div class="field">
+      <span>Experience</span>
+      <div class="checks">
+        <label><input type="checkbox" name="experience" value="1" /> Internship</label>
+        <label><input type="checkbox" name="experience" value="2" /> Entry</label>
+        <label><input type="checkbox" name="experience" value="3" /> Associate</label>
+        <label><input type="checkbox" name="experience" value="4" /> Mid-Senior</label>
+        <label><input type="checkbox" name="experience" value="5" /> Director</label>
+      </div>
+    </div>
+    <div class="field">
+      <span>Job type</span>
+      <div class="checks">
+        <label><input type="checkbox" name="jobTypes" value="F" /> Full-time</label>
+        <label><input type="checkbox" name="jobTypes" value="C" /> Contract</label>
+        <label><input type="checkbox" name="jobTypes" value="P" /> Part-time</label>
+      </div>
+    </div>
+    <div class="field">
+      <div class="checks">
+        <label><input type="checkbox" id="easyApply" /> Easy Apply only</label>
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary>Clean up results page</summary>
+    <div class="checks col">
+      <label><input type="checkbox" id="hidePromoted" /> Hide "Promoted" jobs</label>
+      <label><input type="checkbox" id="hideApplied" /> Hide jobs I already applied to</label>
+      <label><input type="checkbox" id="hideViewed" /> Hide jobs I already viewed</label>
+      <label><input type="checkbox" id="redirectAiSearch" /> Switch LinkedIn AI search → classic search</label>
+    </div>
+    <label class="field">
+      <span>Hide jobs containing <small>(comma separated, e.g. clearance, staff, Revature)</small></span>
+      <input id="excludeWords" type="text" />
+    </label>
+  </details>
+
+  <button id="search" class="primary">Search newest jobs</button>
+  <p id="status" class="status"></p>
+
+  <script src="shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
