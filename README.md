@@ -10,6 +10,7 @@ A Chrome extension (works in Chrome, Brave, Edge, Arc on Mac) that skips LinkedI
   - Posted within: 15 min, 1 hr, 3 hr, 6 hr, 12 hr, 24 hr, 3 days, week, or any (`f_TPR`). The 15 min to 12 hr options aren't in LinkedIn's own menu.
   - Optional: experience level, job type, Easy Apply only
 - **Skips the AI search**: if LinkedIn sends you to its AI search page (`/jobs/search-results/`), the extension switches you to the classic search, keeping your keywords.
+- **Strict newest-first order**: LinkedIn's "Most recent" sort is loose, because promoted and reposted jobs get mixed in. The extension re-sorts each results page by the "posted … ago" time, so the newest job is always at the top. You can turn this off in the popup.
 - **Cleans up the results list**: hides *Promoted* jobs, jobs you already applied to, jobs you already viewed (off by default), and any job containing words you list (for example `clearance, staff, Revature`). A blue pill in the bottom-left shows how many jobs were hidden. Click it to show them again.
 
 Your settings save automatically and sync through your Chrome profile.

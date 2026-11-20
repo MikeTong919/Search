@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const TEXT_FIELDS = ['keywords', 'location', 'excludeWords'];
-const BOOL_FIELDS = ['easyApply', 'hidePromoted', 'hideApplied', 'hideViewed', 'redirectAiSearch'];
+const BOOL_FIELDS = ['easyApply', 'hidePromoted', 'hideApplied', 'hideViewed', 'redirectAiSearch', 'sortByTime'];
 const MULTI_FIELDS = ['workTypes', 'experience', 'jobTypes'];
 
 let settings = { ...DEFAULT_SETTINGS };

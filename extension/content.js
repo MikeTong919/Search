@@ -88,7 +88,61 @@
         card.style.opacity = '';
       }
     }
+    sortCards();
     updatePill(hidden, counts);
+  }
+
+  // ---------- 3. Strict newest-first order ----------
+  // LinkedIn's "Most recent" sort is loose: promoted and reposted jobs get
+  // mixed in. We re-order each page using CSS `order` instead of moving DOM
+  // nodes, so LinkedIn's own scripts keep working.
+  function cardAge(card) {
+    const time = card.querySelector('time');
+    let age = parseAgeMinutes(time && time.innerText);
+    if (age == null) age = parseAgeMinutes(card.innerText);
+    if (age == null && time && time.dateTime) {
+      const t = Date.parse(time.dateTime);
+      if (!Number.isNaN(t)) age = Math.max(0, (Date.now() - t) / 60000);
+    }
+    return age;
+  }
+
+  function sortCards() {
+    const byList = new Map();
+    for (const card of cardRoots()) {
+      const list = card.parentElement;
+      if (!list) continue;
+      if (!byList.has(list)) byList.set(list, []);
+      byList.get(list).push(card);
+    }
+
+    for (const [list, cards] of byList) {
+      if (cards.length < 2) continue; // a wrapper around one card, not a list
+      if (!settings.sortByTime) {
+        if (list.dataset.rrjSorted) {
+          delete list.dataset.rrjSorted;
+          list.style.display = list.style.flexDirection = '';
+          cards.forEach((c) => (c.style.order = ''));
+        }
+        continue;
+      }
+      // Cards LinkedIn hasn't rendered yet have no text; give them the age of
+      // the card before them so they stay roughly where LinkedIn put them.
+      let prevAge = 0;
+      const items = cards.map((card, index) => {
+        const age = cardAge(card);
+        if (age != null) prevAge = age;
+        return { card, index, age: age ?? prevAge };
+      });
+      items.sort((a, b) => a.age - b.age || a.index - b.index);
+      list.dataset.rrjSorted = '1';
+      list.style.display = 'flex';
+      list.style.flexDirection = 'column';
+      items.forEach((it, rank) => {
+        const order = String(rank);
+        if (it.card.style.order !== order) it.card.style.order = order;
+      });
+    }
   }
 
   function updatePill(hidden, counts) {
