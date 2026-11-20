@@ -1,0 +1,51 @@
+[
+  {
+    "id": 1,
+    "priority": 30,
+    "action": { "type": "allow" },
+    "condition": {
+      "regexFilter": "^https://(www\\.)?linkedin\\.com/jobs/search/?\\?(.*&)?skipRedirect=true",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 20,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "path": "/jobs/search/",
+          "queryTransform": {
+            "addOrReplaceParams": [
+              { "key": "skipRedirect", "value": "true" },
+              { "key": "sortBy", "value": "DD" }
+            ]
+          }
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://(www\\.)?linkedin\\.com/jobs/search-results",
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 10,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "queryTransform": {
+            "addOrReplaceParams": [{ "key": "skipRedirect", "value": "true" }]
+          }
+        }
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://(www\\.)?linkedin\\.com/jobs/search/?(\\?|$)",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

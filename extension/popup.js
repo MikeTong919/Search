@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const TEXT_FIELDS = ['keywords', 'location', 'excludeWords'];
-const BOOL_FIELDS = ['easyApply', 'hidePromoted', 'hideApplied', 'hideViewed', 'redirectAiSearch', 'sortByTime'];
-const MULTI_FIELDS = ['workTypes', 'experience', 'jobTypes'];
+const BOOL_FIELDS = ['easyApply', 'hidePromoted', 'hideApplied', 'hideViewed', 'sortByTime'];
+const MULTI_FIELDS = ['workTypes'];
 
 let settings = { ...DEFAULT_SETTINGS };
 
@@ -51,6 +51,8 @@ $('time').addEventListener('click', (e) => {
 $('search').addEventListener('click', async () => {
   collect();
   await saveSettings(settings);
+  // Tell the LinkedIn tab to scan every page and show the sorted list.
+  await chrome.storage.local.set({ rrjAutoScan: Date.now() });
   chrome.tabs.create({ url: buildSearchUrl(settings) });
   window.close();
 });

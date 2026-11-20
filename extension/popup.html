@@ -11,12 +11,12 @@
   </header>
 
   <label class="field">
-    <span>Keywords <small>(supports OR, NOT, "quotes")</small></span>
+    <span>Keywords</span>
     <input id="keywords" type="text" />
   </label>
 
   <label class="field">
-    <span>Location <small>(e.g. United States, Canada, Worldwide)</small></span>
+    <span>Location <small>(e.g. United States, Canada)</small></span>
     <input id="location" type="text" />
   </label>
 
@@ -29,8 +29,8 @@
       <button data-v="21600">6 hr</button>
       <button data-v="43200">12 hr</button>
       <button data-v="86400">24 hr</button>
-      <button data-v="259200">3 days</button>
       <button data-v="604800">Week</button>
+      <button data-v="2592000">Month</button>
       <button data-v="0">Any</button>
     </div>
   </div>
@@ -41,44 +41,17 @@
       <label><input type="checkbox" name="workTypes" value="2" /> Remote</label>
       <label><input type="checkbox" name="workTypes" value="3" /> Hybrid</label>
       <label><input type="checkbox" name="workTypes" value="1" /> On-site</label>
+      <label><input type="checkbox" id="easyApply" /> Easy Apply only</label>
     </div>
   </div>
 
-  <details>
-    <summary>More filters</summary>
-    <div class="field">
-      <span>Experience</span>
-      <div class="checks">
-        <label><input type="checkbox" name="experience" value="1" /> Internship</label>
-        <label><input type="checkbox" name="experience" value="2" /> Entry</label>
-        <label><input type="checkbox" name="experience" value="3" /> Associate</label>
-        <label><input type="checkbox" name="experience" value="4" /> Mid-Senior</label>
-        <label><input type="checkbox" name="experience" value="5" /> Director</label>
-      </div>
-    </div>
-    <div class="field">
-      <span>Job type</span>
-      <div class="checks">
-        <label><input type="checkbox" name="jobTypes" value="F" /> Full-time</label>
-        <label><input type="checkbox" name="jobTypes" value="C" /> Contract</label>
-        <label><input type="checkbox" name="jobTypes" value="P" /> Part-time</label>
-      </div>
-    </div>
-    <div class="field">
-      <div class="checks">
-        <label><input type="checkbox" id="easyApply" /> Easy Apply only</label>
-      </div>
-    </div>
-  </details>
-
   <details open>
-    <summary>Clean up results page</summary>
+    <summary>On the results page</summary>
     <div class="checks col">
+      <label><input type="checkbox" id="sortByTime" /> Sort jobs newest → oldest</label>
       <label><input type="checkbox" id="hidePromoted" /> Hide "Promoted" jobs</label>
       <label><input type="checkbox" id="hideApplied" /> Hide jobs I already applied to</label>
       <label><input type="checkbox" id="hideViewed" /> Hide jobs I already viewed</label>
-      <label><input type="checkbox" id="sortByTime" /> Re-sort each page strictly newest → oldest</label>
-      <label><input type="checkbox" id="redirectAiSearch" /> Switch LinkedIn AI search → classic search</label>
     </div>
     <label class="field">
       <span>Hide jobs containing <small>(comma separated, e.g. clearance, staff, Revature)</small></span>

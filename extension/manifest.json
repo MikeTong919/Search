@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Recent Remote Jobs for LinkedIn",
-  "version": "1.0.0",
-  "description": "Open LinkedIn's classic job search sorted by newest, filtered to remote, and hide promoted/applied/unwanted jobs.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://www.linkedin.com/*"],
+  "version": "2.0.0",
+  "description": "Keeps LinkedIn on the classic job search (skipRedirect), sorts jobs strictly newest first across all pages, and hides promoted/applied/unwanted jobs.",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://linkedin.com/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Recent Remote Jobs",
@@ -23,9 +29,32 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/*"],
-      "js": ["shared.js", "content.js"],
+      "matches": [
+        "https://www.linkedin.com/jobs/*"
+      ],
+      "js": [
+        "classic-fixes.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.linkedin.com/*"
+      ],
+      "js": [
+        "shared.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "classic_search",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
 }
