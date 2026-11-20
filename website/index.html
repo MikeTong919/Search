@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Radar</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #ffffff; --fg: #171a21; --muted: #5f6675; --faint: #8a91a0; --border: #e3e6ee;
+    --accent: #4f46e5; --accent-fg: #ffffff; --accent-soft: #eef0ff;
+    --strong: #0f9f6e; --strong-soft: #e3f6ee; --good: #2f6fed; --good-soft: #e8f0ff; --fair: #8a91a0; --fair-soft: #f0f1f5;
+    --warn: #c2410c; --warn-soft: #fff1e8; --like: #e11d48; --like-soft: #ffe8ee;
+    --track: #e9ebf2; --shadow: 0 1px 2px rgba(20,24,40,.05), 0 4px 16px rgba(20,24,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1116; --card: #181b22; --fg: #eceef3; --muted: #a3aab8; --faint: #7d8493; --border: #2a2f3a;
+      --accent: #8b85ff; --accent-fg: #0f1116; --accent-soft: #23234a;
+      --strong: #34d399; --strong-soft: #10332a; --good: #6ea0ff; --good-soft: #1a2a4d; --fair: #8a91a0; --fair-soft: #232731;
+      --warn: #fb923c; --warn-soft: #3a2414; --like: #fb7185; --like-soft: #3d1a24;
+      --track: #2a2f3a; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: inherit; }
+  .app { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
+
+  /* ---- sidebar ---- */
+  .side { background: var(--card); border-right: 1px solid var(--border); padding: 18px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 18px; padding: 0 8px 16px; letter-spacing: -.01em; }
+  .brand svg { flex: none; }
+  .side-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 12px 10px 4px; }
+  .tab, .side-btn { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; color: var(--muted); font-weight: 600; padding: 9px 10px; border-radius: 10px; cursor: pointer; text-align: left; }
+  .tab:hover, .side-btn:hover { background: var(--bg); color: var(--fg); }
+  .tab.on { background: var(--accent-soft); color: var(--accent); }
+  .tab .ico, .side-btn .ico { width: 18px; text-align: center; }
+  .tab .count { margin-left: auto; font-size: 12px; color: var(--faint); font-weight: 700; }
+  .tab.on .count { color: var(--accent); }
+  .side-note { margin-top: auto; font-size: 12px; color: var(--faint); padding: 12px 10px 0; line-height: 1.4; }
+
+  /* ---- main: search, filters, feed ---- */
+  .main { min-width: 0; display: flex; flex-direction: column; height: 100%; }
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 20px; display: grid; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+  label { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 11px; color: var(--muted); }
+  input[type=text], input[type=number], select, textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; min-width: 0; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  #keywords { width: 240px; } #location { width: 160px; } #max { width: 76px; } #exclude { width: 180px; }
+  .check { flex-direction: row; align-items: center; gap: 6px; font-size: 13px; color: var(--fg); font-weight: 500; padding-bottom: 8px; }
+  .btn { font-weight: 700; border: 0; border-radius: 999px; padding: 8px 18px; cursor: pointer; background: var(--accent); color: var(--accent-fg); }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .filters select { max-width: 200px; }
+  .feed-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px 6px; flex-wrap: wrap; }
+  #status { font-size: 13px; color: var(--muted); }
+  #status.warn { color: var(--warn); }
+  #list { list-style: none; margin: 0; padding: 6px 20px 40px; overflow-y: auto; flex: 1; display: grid; gap: 12px; align-content: start; }
+  .empty { color: var(--muted); text-align: center; padding: 48px 12px; }
+
+  /* ---- job card ---- */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; display: grid; grid-template-columns: 52px 1fr 150px; gap: 0 16px; cursor: pointer; box-shadow: var(--shadow); max-width: 1100px; }
+  .card:hover { border-color: var(--accent); }
+  .card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, var(--shadow); }
+  .logo { width: 52px; height: 52px; border-radius: 12px; object-fit: contain; background: #fff; border: 1px solid var(--border); }
+  .logo.blank { display: grid; place-items: center; font-weight: 800; font-size: 20px; color: var(--muted); background: var(--bg); }
+  .logo.big { width: 60px; height: 60px; }
+  .c-body { min-width: 0; }
+  .c-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .time { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 9px; }
+  .ctitle { font-size: 17px; font-weight: 750; line-height: 1.3; margin: 2px 0; }
+  .co { color: var(--muted); font-weight: 600; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin-top: 10px; color: var(--fg); font-size: 13px; }
+  .fact { display: flex; gap: 6px; align-items: center; min-width: 0; }
+  .fact span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fact .fi { color: var(--faint); width: 16px; text-align: center; flex: none; }
+  .c-foot { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); align-items: center; }
+  .c-side { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 10px; border-left: 1px solid var(--border); padding-left: 16px; }
+  .c-actions { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); cursor: pointer; display: grid; place-items: center; font-size: 15px; color: var(--muted); }
+  .icon-btn:hover { border-color: var(--accent); color: var(--fg); }
+  .icon-btn.on-like { background: var(--like-soft); color: var(--like); border-color: transparent; }
+  .apply { font-weight: 700; border-radius: 999px; padding: 7px 14px; background: var(--accent); color: var(--accent-fg); text-decoration: none; font-size: 13px; white-space: nowrap; }
+
+  /* ---- tags ---- */
+  .tag { font-size: 12px; border-radius: 999px; padding: 2px 9px; background: var(--bg); border: 1px solid var(--border); color: var(--fg); white-space: nowrap; }
+  .tag.new { color: var(--strong); background: var(--strong-soft); border-color: transparent; font-weight: 800; }
+  .tag.liked { color: var(--like); background: var(--like-soft); border-color: transparent; font-weight: 700; }
+  .tag.applied { color: var(--strong); background: var(--strong-soft); border-color: transparent; font-weight: 700; }
+  .tag.ind { color: var(--accent); background: var(--accent-soft); border-color: transparent; font-weight: 600; }
+  .tag.muted { color: var(--muted); }
+  .tag.early, .tag.wp-remote, .tag.visa-yes, .tag.have { color: var(--strong); background: var(--strong-soft); border-color: transparent; font-weight: 600; }
+  .tag.wp-hybrid, .tag.wp-onsite, .tag.visa-no, .tag.visa-clearance { color: var(--warn); background: var(--warn-soft); border-color: transparent; font-weight: 600; }
+  .tag.miss { color: var(--muted); border-style: dashed; }
+
+  /* ---- match ring ---- */
+  .ring { --p: 0; --c: var(--fair); width: 86px; height: 86px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--track) 0); flex: none; }
+  .ring::before { content: ''; grid-area: 1 / 1; width: 70px; height: 70px; border-radius: 50%; background: var(--card); }
+  .ring b { grid-area: 1 / 1; font-size: 20px; font-weight: 800; z-index: 1; color: var(--c); }
+  .ring.strong { --c: var(--strong); } .ring.good { --c: var(--good); } .ring.fair { --c: var(--fair); }
+  .ring.none b { font-size: 13px; color: var(--faint); }
+  .ring.sm { width: 64px; height: 64px; } .ring.sm::before { width: 52px; height: 52px; } .ring.sm b { font-size: 16px; }
+  .mlabel { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; text-align: center; }
+  .mlabel.strong { color: var(--strong); } .mlabel.good { color: var(--good); } .mlabel.fair { color: var(--fair); }
+  .mlabel button { border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 700; }
+
+  /* ---- detail drawer ---- */
+  .scrim { position: fixed; inset: 0; background: rgba(10,12,20,.35); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 9; }
+  body.reading .scrim { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(680px, 100vw); background: var(--bg); border-left: 1px solid var(--border); box-shadow: -8px 0 30px rgba(10,12,20,.18); transform: translateX(105%); transition: transform .2s ease; z-index: 10; overflow-y: auto; padding: 18px 24px 48px; }
+  body.reading .drawer { transform: none; }
+  .d-close { position: sticky; top: 0; float: right; z-index: 2; }
+  .d-head { display: grid; grid-template-columns: 60px 1fr; gap: 6px 16px; align-items: start; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  .d-head h2 { margin: 2px 0; font-size: 22px; line-height: 1.25; }
+  .d-head .facts { grid-column: 1 / -1; }
+  .d-head .c-foot { grid-column: 1 / -1; }
+  .d-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .act { border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 8px 16px; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .act.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .act.on-saved { background: var(--like-soft); color: var(--like); border-color: transparent; }
+  .act.on-applied { background: var(--strong-soft); color: var(--strong); border-color: transparent; }
+  .section { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin-top: 14px; box-shadow: var(--shadow); }
+  .section h3 { margin: 0 0 10px; font-size: 15px; }
+  .match-top { display: flex; gap: 16px; align-items: center; }
+  .bars { display: grid; gap: 8px; flex: 1; min-width: 180px; }
+  .bar { display: grid; grid-template-columns: 92px 1fr 40px; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); }
+  .bar i { display: block; height: 8px; border-radius: 99px; background: var(--track); overflow: hidden; }
+  .bar i b { display: block; height: 100%; border-radius: 99px; background: var(--c, var(--accent)); }
+  .bar span:last-child { text-align: right; font-weight: 700; color: var(--fg); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .why { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .company { font-weight: 700; text-decoration: none; }
+  .company:hover { text-decoration: underline; }
+  .jd { line-height: 1.6; }
+  .jd ul, .jd ol { padding-left: 22px; }
+  .jd li { margin: 2px 0; }
+
+  /* ---- dialog + toast ---- */
+  dialog { border: 1px solid var(--border); border-radius: 16px; padding: 0; background: var(--card); color: var(--fg); width: min(640px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(10,12,20,.45); }
+  .dlg { padding: 20px 22px; display: grid; gap: 10px; }
+  .dlg h2 { margin: 0; font-size: 18px; }
+  .dlg .why { margin: 0; }
+  textarea { resize: vertical; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--fg); color: var(--bg); border-radius: 14px; padding: 12px 14px 12px 18px; display: none; gap: 10px; align-items: center; z-index: 20; box-shadow: 0 8px 30px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+  .toast.show { display: flex; }
+  .toast button { border: 0; border-radius: 999px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
+  .toast .yes { background: var(--strong); color: #fff; }
+  .toast .no { background: transparent; color: var(--bg); border: 1px solid currentColor; }
+
+  /* ---- small screens ---- */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .side { flex-direction: row; align-items: center; padding: 8px 10px; gap: 2px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .brand { padding: 0 8px 0 4px; font-size: 16px; }
+    .brand span, .side-h, .side-note { display: none; }
+    .tab, .side-btn { width: auto; padding: 7px 10px; white-space: nowrap; }
+    .tab .count { margin-left: 4px; }
+    .topbar { padding: 10px 12px; }
+    #keywords, #location, #exclude { width: 100%; }
+    .row > label { flex: 1 1 140px; }
+    #list { padding: 6px 12px 40px; }
+    .feed-head { padding: 12px 12px 4px; }
+    .card { grid-template-columns: 44px 1fr; padding: 14px; }
+    .logo { width: 44px; height: 44px; }
+    .c-side { grid-column: 1 / -1; flex-direction: row; border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+    .ring { width: 64px; height: 64px; } .ring::before { width: 52px; height: 52px; } .ring b { font-size: 16px; }
+    .drawer { padding: 14px 14px 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="var(--accent)"/><circle cx="14" cy="14" r="8" fill="none" stroke="#fff" stroke-width="2" opacity=".55"/><circle cx="14" cy="14" r="3.2" fill="#fff"/><path d="M14 14 L23 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span>Job Radar</span>
+    </div>
+    <div class="side-h">Jobs</div>
+    <button class="tab on" data-tab="all"><span class="ico">◎</span><span class="lbl">Recommended</span><span class="count"></span></button>
+    <button class="tab" data-tab="saved"><span class="ico">♥</span><span class="lbl">Liked</span><span class="count"></span></button>
+    <button class="tab" data-tab="applied"><span class="ico">✓</span><span class="lbl">Applied</span><span class="count"></span></button>
+    <button class="tab" data-tab="hidden"><span class="ico">⊘</span><span class="lbl">Not interested</span><span class="count"></span></button>
+    <div class="side-h">You</div>
+    <button class="side-btn" id="resumeBtn" type="button"><span class="ico">📄</span><span class="lbl">Resume</span></button>
+    <p class="side-note">LinkedIn's public listings, sorted newest first. No account needed; your resume and lists stay in this browser.</p>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <form id="form" class="row">
+        <label>Job title or keywords <input type="text" id="keywords" value="software engineer"></label>
+        <label>Location <input type="text" id="location" value="United States"></label>
+        <label>Posted within
+          <select id="window">
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600" selected>1 hour</option>
+            <option value="10800">3 hours</option>
+            <option value="21600">6 hours</option>
+            <option value="43200">12 hours</option>
+            <option value="86400">24 hours</option>
+            <option value="259200">3 days</option>
+            <option value="604800">Week</option>
+          </select>
+        </label>
+        <label>Work model
+          <select id="workplace">
+            <option value="remote" selected>Remote only</option>
+            <option value="maybe">Remote + unclear</option>
+            <option value="">Any</option>
+          </select>
+        </label>
+        <label>Max jobs <input type="number" id="max" value="200" min="10" max="1000" step="10"></label>
+        <button type="button" class="btn ghost" id="stop" disabled>Stop</button>
+        <button type="submit" class="btn" id="go">Search</button>
+      </form>
+      <div class="row filters">
+        <label>Industry <select id="fIndustry"><option value="">All industries</option></select></label>
+        <label>Experience level
+          <select id="fSeniority">
+            <option value="">Any</option>
+            <option>Internship</option><option>Entry level</option><option>Associate</option>
+            <option>Mid-Senior level</option><option>Director</option><option>Executive</option>
+          </select>
+        </label>
+        <label>Job type
+          <select id="fType">
+            <option value="">Any</option>
+            <option>Full-time</option><option>Contract</option><option>Part-time</option><option>Temporary</option><option>Internship</option>
+          </select>
+        </label>
+        <label>Applicants
+          <select id="fApplicants">
+            <option value="">Any</option>
+            <option value="25">Under 25</option>
+            <option value="50">Under 50</option>
+            <option value="100">Under 100</option>
+          </select>
+        </label>
+        <label>H1B / visa
+          <select id="fVisa">
+            <option value="">Any</option>
+            <option value="ok">Hide "no sponsorship" &amp; clearance</option>
+          </select>
+        </label>
+        <label>Match
+          <select id="fMatch">
+            <option value="">Any</option>
+            <option value="60">60%+</option>
+            <option value="70">70%+</option>
+            <option value="80">80%+</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="fSalary"> Salary listed</label>
+        <label>Exclude words <input type="text" id="exclude" placeholder="e.g. clearance, staffing"></label>
+        <button type="button" class="btn ghost" id="clearFilters">Clear</button>
+      </div>
+    </div>
+    <div class="feed-head">
+      <div id="status"></div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="auto" checked> New jobs every minute</label>
+        <label>Sort
+          <select id="sort">
+            <option value="new">Newest first</option>
+            <option value="match">Best match</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <ol id="list"></ol>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="drawer" id="detail" aria-label="Job details"></section>
+<div class="toast" id="toast"><span id="toastText"></span><button class="yes" id="toastYes">Yes, applied</button><button class="no" id="toastNo">No</button></div>
+
+<dialog id="resumeDlg">
+  <form method="dialog" class="dlg">
+    <h2>Your resume</h2>
+    <p class="why">Used only in this browser to score each job. It is never sent anywhere.</p>
+    <label>Upload (PDF or text) <input type="file" id="resumeFile" accept=".pdf,.txt,.md,text/plain,application/pdf"></label>
+    <label>Or paste it <textarea id="resumeText" rows="12" placeholder="Paste your resume here"></textarea></label>
+    <label>Years of experience <input type="number" id="resumeYears" min="0" max="50" step="1" style="width:100px"></label>
+    <div id="resumeSkills" class="tags"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" class="btn ghost" id="resumeClear">Remove resume</button>
+      <button type="button" class="btn ghost" id="resumeCancel">Cancel</button>
+      <button type="submit" class="btn" id="resumeSave">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const PAGE_GAP_MS = 1200;
+const CHECK_EVERY_MS = 60_000;
+let running = false, stopRequested = false;
+let jobs = new Map();     // id -> job with { lo, hi } posting window (ms) and firstSeen
+let searchKey = '';
+let searchDoneAt = 0;     // jobs first seen after this get a NEW badge
+let lastCheckAt = 0;      // when LinkedIn was last asked (full search or check)
+let newSinceSearch = 0;
+const details = new Map(); // id -> { status, industry, seniority, employmentType, applicants, descriptionHtml, ... }
+let tab = 'all';
+let selectedId = null;
+
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ---- Saved / Applied / Hidden, kept in this browser ----
+// id -> { state: 'saved' | 'applied' | 'hidden', at, job: {title, company, ...} }
+let tracker = store.get('tracker', {});
+const trackState = (id) => tracker[id]?.state || '';
+function setTrack(id, state) {
+  if (!state || trackState(id) === state) delete tracker[id];
+  else {
+    const j = jobs.get(id) || tracker[id]?.job || {};
+    const { title, company, location, salary, url, logo, companyUrl, hi } = j;
+    tracker[id] = { state, at: Date.now(), job: { id, title, company, location, salary, url, logo, companyUrl, hi } };
+  }
+  store.set('tracker', tracker);
+  render();
+}
+
+// ---- posting time ----
+// "35 minutes ago" -> the range it was posted in. LinkedIn rounds down,
+// so "35 minutes ago" means 35–36 min before the page was fetched.
+const UNIT = { second: 1e3, minute: 6e4, hour: 36e5, day: 864e5, week: 6048e5, month: 2592e6 };
+function postedWindow(text, at) {
+  if (/just now|moments? ago/i.test(text)) return { lo: at - 6e4, hi: at };
+  const m = text.match(/(\d+)\s+(second|minute|hour|day|week|month)s?\s+ago/i);
+  if (!m) return null;
+  const u = UNIT[m[2].toLowerCase()], n = Number(m[1]);
+  return { lo: at - (n + 1) * u, hi: at - n * u };
+}
+const mid = (j) => (j.lo + j.hi) / 2;
+
+function remember(job, fetchedAt) {
+  const w = postedWindow(job.postedText, fetchedAt);
+  const old = jobs.get(job.id);
+  const merged = { ...old, ...job, firstSeen: old?.firstSeen ?? Date.now() };
+  if (w) {
+    // Each sighting narrows down when it was posted.
+    const lo = old?.lo != null ? Math.max(old.lo, w.lo) : w.lo;
+    const hi = old?.hi != null ? Math.min(old.hi, w.hi) : w.hi;
+    Object.assign(merged, lo <= hi ? { lo, hi } : w); // no overlap = reposted
+  }
+  jobs.set(job.id, merged);
+  return !old;
+}
+
+function ageLabel(ms) {
+  if (ms == null) return '';
+  const min = Math.max(0, Math.floor((Date.now() - ms) / 6e4));
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  return h < 48 ? `${h} hr ago` : `${Math.floor(h / 24)} days ago`;
+}
+
+const isNew = (j) => searchDoneAt && j.firstSeen > searchDoneAt;
+
+// "Over 200 applicants" -> 201, "Be among the first 25 applicants" -> 24
+function applicantCount(text) {
+  if (!text) return null;
+  const n = Number((text.match(/[\d,]+/) || [''])[0].replace(/,/g, ''));
+  if (!n) return null;
+  if (/over/i.test(text)) return n + 1;
+  if (/first/i.test(text)) return n - 1;
+  return n;
+}
+
+// ---- remote / hybrid / on-site ----
+// LinkedIn's public pages have no workplace field, and its remote filter is
+// ignored there, so each job is classified from its title, description and
+// location. Explicit on-site/hybrid wording beats a passing mention of remote.
+const RX = {
+  countryOnly: /^\s*(United States|USA|Canada|United Kingdom|Ireland|Germany|Netherlands|Spain|Portugal|Poland|India|Australia|Brazil|Mexico|Argentina|Europe|EMEA|LATAM|Latin America|Worldwide)\s*$/i,
+  titleRemote: /\b(remote|wfh|work from home|telecommute|telework|anywhere)\b/i,
+  titleHybrid: /\bhybrid\b/i,
+  titleOnsite: /\b(on-?site|in-?office|in-?person)\b/i,
+  notRemote: /\b(not (a |an )?remote|no remote|non-remote|remote (work )?(is|will) not|not eligible for remote|not open to remote|this is not a remote|remote[^.]{0,40}\b(will not|won't|cannot|can't|is not|are not|not) be (considered|available|offered|possible|accepted))\b/i,
+  hybrid: /\bhybrid\b(?!\s+(cloud|app|mobile|infrastructure|environment(s)? (across|including)))[^.]{0,90}?\b(\d|one|two|three|four|days?|week|schedule|model|role|position|work|office|onsite|on-site|in-person|location)/i,
+  onsite: /\b((on-?site|in[- ]office|in the office|in-person|in person)\b[^.]{0,70}?\b(\d|one|two|three|four|five|days?|week|required|requirement|role|position|basis|daily|full[- ]time|expected)|(must|will|required to|expected to) (be able to )?(work|report|be) (on-?site|in (the|our|an) office|in person)|this (role|position|job) is (based |located )?(on-?site|in-office|in our [^.]{0,40}office))/i,
+  remote: /\b((fully|100%|completely|entirely|permanently) remote|remote[- ](first|friendly|based|eligible)\b|remote (role|position|opportunity|job|employee|candidates?|anywhere)|work (remotely|from anywhere|from home)|this (role|position|job) (is|can be) (a )?(fully )?remote|(is|are) (a )?(fully )?remote (role|position)|remote (within|in|from) (the )?(us|u\.s\.|usa|united states|canada|uk|europe)|location:?\s*remote|remote,\s*(us|usa|united states))\b/i,
+};
+
+function snippet(text, re) {
+  const m = text.match(re);
+  if (!m) return '';
+  const i = Math.max(0, m.index - 30);
+  return (i ? '…' : '') + text.slice(i, m.index + m[0].length + 30).trim() + '…';
+}
+
+function workplaceOf(j) {
+  const title = j.title || '';
+  if (RX.titleOnsite.test(title)) return { type: 'onsite', why: `Title says "${title.match(RX.titleOnsite)[0]}"` };
+  if (RX.titleHybrid.test(title)) return { type: 'hybrid', why: 'Title says "hybrid"' };
+  if (RX.titleRemote.test(title)) return { type: 'remote', why: `Title says "${title.match(RX.titleRemote)[0]}"` };
+  const d = details.get(j.id);
+  if (!d || d.status !== 200) return { type: 'pending', why: 'Reading the description…' };
+  const text = (d.descriptionText || '').replace(/\s+/g, ' ');
+  if (RX.notRemote.test(text)) return { type: 'onsite', why: `Description: "${snippet(text, RX.notRemote)}"` };
+  if (RX.onsite.test(text)) return { type: 'onsite', why: `Description: "${snippet(text, RX.onsite)}"` };
+  if (RX.hybrid.test(text)) return { type: 'hybrid', why: `Description: "${snippet(text, RX.hybrid)}"` };
+  if (RX.remote.test(text)) return { type: 'remote', why: `Description: "${snippet(text, RX.remote)}"` };
+  // LinkedIn's remote listings usually give just a country as the location.
+  if (RX.countryOnly.test(j.location || '')) return { type: 'remote', why: `Location is only "${j.location}" and nothing says on-site or hybrid` };
+  return { type: 'unknown', why: 'Neither the title nor the description says remote or on-site' };
+}
+
+const WP_LABEL = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site', unknown: 'Workplace unclear', pending: '' };
+
+// ---- resume match, sponsorship, experience ----
+// Everything here runs in your browser; your resume is never sent anywhere.
+const SKILLS = [
+  // languages
+  ['JavaScript', /\bjavascript\b|\bes6\b/i], ['TypeScript', /\btypescript\b/i], ['Python', /\bpython\b/i],
+  ['Java', /\bjava\b(?!\s*script)/i], ['C#', /\bc#|\bc sharp\b/i], ['C++', /\bc\+\+/i], ['Go', /\bgolang\b|\bGo\b(?=[,/)]|\s+(and|or|developer|engineer|services?|microservices))/],
+  ['Rust', /\brust\b/i], ['Ruby', /\bruby\b/i], ['PHP', /\bphp\b/i], ['Kotlin', /\bkotlin\b/i], ['Swift', /\bswift\b/i],
+  ['Scala', /\bscala\b/i], ['Elixir', /\belixir\b/i], ['SQL', /\bsql\b/i], ['Bash', /\bbash\b|\bshell scripting\b/i],
+  // web
+  ['React', /\breact(\.js|js)?\b(?!\s*native)/i], ['Angular', /\bangular\b/i], ['Vue', /\bvue(\.js|js)?\b/i], ['Next.js', /\bnext\.?js\b/i],
+  ['Node.js', /\bnode(\.js|js)?\b/i], ['Express', /\bexpress(\.js|js)?\b/i], ['Redux', /\bredux\b/i], ['HTML', /\bhtml5?\b/i], ['CSS', /\bcss3?\b|\bsass\b|\bscss\b/i],
+  ['Tailwind', /\btailwind\b/i], ['GraphQL', /\bgraphql\b/i], ['REST APIs', /\brest(ful)?\b(\s+apis?)?/i], ['gRPC', /\bgrpc\b/i],
+  // backend frameworks
+  ['Spring', /\bspring( boot)?\b/i], ['Django', /\bdjango\b/i], ['Flask', /\bflask\b/i], ['FastAPI', /\bfastapi\b/i], ['Rails', /\brails\b/i],
+  ['.NET', /\.net\b|\basp\.net\b/i], ['Laravel', /\blaravel\b/i],
+  // data
+  ['PostgreSQL', /\bpostgres(ql)?\b/i], ['MySQL', /\bmysql\b/i], ['MongoDB', /\bmongo(db)?\b/i], ['Redis', /\bredis\b/i],
+  ['Elasticsearch', /\belastic ?search\b|\bopensearch\b/i], ['Kafka', /\bkafka\b/i], ['Spark', /\bspark\b/i], ['Snowflake', /\bsnowflake\b/i],
+  ['DynamoDB', /\bdynamo ?db\b/i], ['Cassandra', /\bcassandra\b/i], ['BigQuery', /\bbigquery\b/i], ['Airflow', /\bairflow\b/i], ['dbt', /\bdbt\b/],
+  // cloud & ops
+  ['AWS', /\baws\b|\bamazon web services\b/i], ['Azure', /\bazure\b/i], ['GCP', /\bgcp\b|\bgoogle cloud\b/i], ['Docker', /\bdocker\b/i],
+  ['Kubernetes', /\bkubernetes\b|\bk8s\b/i], ['Terraform', /\bterraform\b/i], ['CI/CD', /\bci\s*\/\s*cd\b|\bcontinuous (integration|delivery|deployment)\b/i],
+  ['Jenkins', /\bjenkins\b/i], ['GitHub Actions', /\bgithub actions\b/i], ['Linux', /\blinux\b/i], ['Microservices', /\bmicro-?services\b/i],
+  ['Distributed systems', /\bdistributed systems?\b/i], ['System design', /\bsystem design\b/i], ['Git', /\bgit\b(?!hub)/i],
+  // AI / ML
+  ['Machine learning', /\bmachine learning\b|\bml\b/i], ['PyTorch', /\bpytorch\b/i], ['TensorFlow', /\btensorflow\b/i], ['LLMs', /\bllms?\b|\blarge language models?\b/i],
+  ['NLP', /\bnlp\b|\bnatural language processing\b/i], ['Computer vision', /\bcomputer vision\b/i], ['Generative AI', /\bgen(erative)? ?ai\b/i],
+  ['RAG', /\brag\b|\bretrieval[- ]augmented\b/i], ['LangChain', /\blangchain\b/i],
+  // mobile
+  ['iOS', /\bios\b/i], ['Android', /\bandroid\b/i], ['React Native', /\breact native\b/i], ['Flutter', /\bflutter\b/i],
+  // testing & process
+  ['Jest', /\bjest\b/i], ['Cypress', /\bcypress\b/i], ['Selenium', /\bselenium\b/i], ['Playwright', /\bplaywright\b/i], ['Agile', /\bagile\b|\bscrum\b/i],
+];
+
+function skillsIn(text) {
+  return SKILLS.filter(([, re]) => re.test(text)).map(([name]) => name);
+}
+
+// { text, years } saved in this browser only.
+let resume = store.get('resume', { text: '', years: '' });
+let resumeSkills = new Set(skillsIn(resume.text));
+const wordsOf = (t) => new Set((t || '').toLowerCase().match(/[a-z][a-z0-9+#.]*/g) || []);
+let resumeWords = wordsOf(resume.text);
+// Role words of a job title, without seniority and filler ("Senior Software Engineer II" -> software, engineer)
+const TITLE_SKIP = new Set(['senior', 'sr', 'sr.', 'junior', 'jr', 'jr.', 'staff', 'principal', 'lead', 'head', 'chief', 'i', 'ii', 'iii', 'iv', 'v', 'of', 'and', 'the', 'for', 'with', 'to', 'in', 'a', 'an', 'at', 'on', 'remote', 'hybrid', 'onsite', 'on-site', 'us', 'usa', 'level', 'mid', 'entry', 'new', 'grad', 'contract', 'full', 'time', 'part', 'temporary', 'w2', 'c2c', 'needed', 'urgent', 'hiring', 'only', 'locals', 'local', 'wfh']);
+function titleWords(title) {
+  return [...wordsOf((title || '').replace(/\(.*?\)|\[.*?\]/g, ' '))].filter((w) => w.length > 1 && !TITLE_SKIP.has(w) && !/^\d/.test(w));
+}
+let resumeVersion = 0;
+function setResume(text, years) {
+  resume = { text, years };
+  store.set('resume', resume);
+  resumeSkills = new Set(skillsIn(text));
+  resumeWords = wordsOf(text);
+  resumeVersion++;
+  matchCache.clear();
+}
+const hasResume = () => resumeSkills.size > 0;
+
+// "5+ years of experience" -> 5 (the first number that's about experience;
+// that's usually the main requirement)
+function yearsRequired(text) {
+  for (const m of text.matchAll(/\b(\d{1,2})\s*(\+|or more|to \d{1,2}|-\s*\d{1,2})?\s*(\+)?\s*years?['’]?\s*(of\s+)?[^.]{0,50}?\bexperience\b/gi)) {
+    const n = Number(m[1]);
+    if (n >= 1 && n <= 20) return n;
+  }
+  return null;
+}
+
+const VISA_RX = {
+  clearance: /\b(security clearance|clearance (is )?required|active (secret|top secret|ts\/sci)|ts\/sci|top secret clearance|u\.?s\.? citizenship (is )?required|must be (a )?u\.?s\.? citizen|only u\.?s\.? citizens)\b/i,
+  noSponsor: /\b((not|unable to|cannot|can't|won't|will not|does not|do not|is not able to)\s+(provide|offer|sponsor|support|consider)[^.]{0,50}\b(sponsor\w*|visas?|h-?1b)|without (the )?(need for )?(current or future |now or in the future )?(employer |visa )?sponsorship|sponsorship (is |will )?not (be )?(available|provided|offered)|no (visa )?sponsorship|not (eligible )?for (visa )?sponsorship)/i,
+  sponsor: /\b((will|can|able to|happy to|we) sponsor|visa sponsorship (is )?(available|provided|offered)|h-?1b (sponsorship |transfers? )?(is )?(available|welcome|supported|accepted)|sponsorship (is )?available)\b/i,
+};
+
+const matchCache = new Map(); // id -> result (cleared when the resume changes)
+function insightsOf(j) {
+  const d = details.get(j.id);
+  if (!d || d.status !== 200) return null;
+  const key = j.id + ':' + resumeVersion;
+  if (matchCache.has(key)) return matchCache.get(key);
+  const text = `${j.title}. ${d.descriptionText || ''}`.replace(/\s+/g, ' ');
+  const jobSkills = skillsIn(text);
+  const have = jobSkills.filter((s) => resumeSkills.has(s));
+  const missing = jobSkills.filter((s) => !resumeSkills.has(s));
+  const years = yearsRequired(text);
+  const myYears = Number(resume.years) || null;
+  // Three parts, like a recruiter's first look: skills (60%), years of
+  // experience (25%) and job title (15%). Parts the job doesn't give are skipped.
+  const parts = { skills: null, exp: null, title: null };
+  let score = null;
+  if (hasResume()) {
+    if (jobSkills.length) parts.skills = Math.round((100 * have.length) / jobSkills.length);
+    if (years && myYears != null) parts.exp = myYears >= years ? 100 : Math.max(0, 100 - (years - myYears) * 25);
+    const words = titleWords(j.title);
+    if (words.length) parts.title = Math.round((100 * words.filter((w) => resumeWords.has(w)).length) / words.length);
+    const weighted = [[parts.skills, 0.6], [parts.exp, 0.25], [parts.title, 0.15]].filter(([v]) => v != null);
+    if (parts.skills != null && weighted.length) {
+      score = Math.round(weighted.reduce((s, [v, w]) => s + v * w, 0) / weighted.reduce((s, [, w]) => s + w, 0));
+    }
+  }
+  const visa = VISA_RX.clearance.test(text) ? 'clearance' : VISA_RX.noSponsor.test(text) ? 'no' : VISA_RX.sponsor.test(text) ? 'yes' : '';
+  const n = applicantCount(d.applicants);
+  const out = { jobSkills, have, missing, years, myYears, score, parts, visa, early: n != null && n < 25 };
+  matchCache.set(key, out);
+  return out;
+}
+
+const VISA_LABEL = { clearance: 'US citizen / clearance', no: 'No sponsorship', yes: 'Sponsors visas' };
+const matchClass = (s) => (s >= 80 ? 'strong' : s >= 60 ? 'good' : 'fair');
+const matchWord = (s) => (s >= 80 ? 'Strong match' : s >= 60 ? 'Good match' : 'Fair match');
+
+// PDF resumes are read with pdf.js (loaded only when you pick a PDF).
+async function pdfText(file) {
+  if (!window.pdfjsLib) {
+    await new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = ok; s.onerror = () => fail(new Error('Could not load the PDF reader.'));
+      document.head.append(s);
+    });
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const c = await (await pdf.getPage(i)).getTextContent();
+    pages.push(c.items.map((it) => it.str).join(' '));
+  }
+  return pages.join('\n');
+}
+
+// ---- filters ----
+const detailFilters = () => $('fIndustry').value || $('fSeniority').value || $('fType').value || $('fApplicants').value || $('fVisa').value || $('fMatch').value;
+function filtersOn() {
+  return $('workplace').value || detailFilters();
+}
+
+function passesFilters(j) {
+  const d = details.get(j.id);
+  const words = $('exclude').value.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean);
+  if (words.length) {
+    const text = `${j.title} ${j.company} ${j.location} ${d?.industry || ''} ${d?.descriptionText || ''}`.toLowerCase();
+    if (words.some((w) => text.includes(w))) return false;
+  }
+  if ($('fSalary').checked && !j.salary) return false;
+  const wp = $('workplace').value;
+  if (wp) {
+    const t = workplaceOf(j).type;
+    if (wp === 'remote' && t !== 'remote') return false;
+    if (wp === 'maybe' && !['remote', 'unknown', 'pending'].includes(t)) return false;
+  }
+  if (!filtersOn()) return true;
+  if (!detailFilters()) return true;
+  if (!d || d.status !== 200) return false; // shown once its details have loaded
+  if ($('fIndustry').value && !(d.industry || '').split(/,\s*|\s+and\s+/).includes($('fIndustry').value)) return false;
+  if ($('fSeniority').value && d.seniority !== $('fSeniority').value) return false;
+  if ($('fType').value && d.employmentType !== $('fType').value) return false;
+  if ($('fApplicants').value) {
+    const n = applicantCount(d.applicants);
+    if (n == null || n >= Number($('fApplicants').value)) return false;
+  }
+  const ins = insightsOf(j);
+  if ($('fVisa').value === 'ok' && ins && (ins.visa === 'no' || ins.visa === 'clearance')) return false;
+  if ($('fMatch').value && hasResume() && !(ins && ins.score != null && ins.score >= Number($('fMatch').value))) return false;
+  return true;
+}
+
+// Jobs in the search, newest first, within "Posted within", not hidden.
+function searchJobs() {
+  const limit = Date.now() - Number($('window').value) * 1000;
+  return [...jobs.values()]
+    .filter((j) => j.lo == null || mid(j) >= limit)
+    .sort((a, b) => (b.lo == null) - (a.lo == null) || mid(b) - mid(a) || b.id.localeCompare(a.id));
+}
+
+function listForTab() {
+  if (tab === 'all') {
+    const list = searchJobs().filter((j) => trackState(j.id) !== 'hidden' && passesFilters(j));
+    if ($('sort').value === 'match' && hasResume()) {
+      // Best match first; jobs not scored yet go last; ties stay newest first.
+      const sc = (j) => insightsOf(j)?.score ?? -1;
+      return list.map((j, i) => [j, i]).sort((a, b) => sc(b[0]) - sc(a[0]) || a[1] - b[1]).map(([j]) => j);
+    }
+    return list;
+  }
+  return Object.entries(tracker)
+    .filter(([, t]) => t.state === tab)
+    .sort((a, b) => b[1].at - a[1].at)
+    .map(([id, t]) => jobs.get(id) || { ...t.job, id });
+}
+
+// Industry choices come from the jobs whose details have loaded.
+function refreshIndustryOptions() {
+  const counts = new Map();
+  for (const j of searchJobs()) {
+    const ind = details.get(j.id)?.industry;
+    if (!ind) continue;
+    for (const one of ind.split(/,\s*|\s+and\s+/).filter(Boolean)) counts.set(one, (counts.get(one) || 0) + 1);
+  }
+  const sel = $('fIndustry');
+  const current = sel.value;
+  const opts = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const sig = opts.map(([k, v]) => k + v).join('|');
+  if (sel.dataset.sig === sig) return;
+  sel.dataset.sig = sig;
+  sel.replaceChildren(new Option('All industries', ''), ...opts.map(([k, v]) => new Option(`${k} (${v})`, k)));
+  if (current && !counts.has(current)) sel.append(new Option(current, current));
+  sel.value = current;
+}
+
+// ---- rendering ----
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function logoEl(j, big) {
+  if (j.logo) {
+    const img = el('img', 'logo' + (big ? ' big' : ''));
+    img.src = j.logo; img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+    return img;
+  }
+  return el('div', 'logo blank' + (big ? ' big' : ''), (j.company || '?').slice(0, 1).toUpperCase());
+}
+
+function render() {
+  refreshIndustryOptions();
+  const list = listForTab();
+  const all = searchJobs();
+  const fresh = all.filter(isNew).length;
+  document.title = fresh ? `(${fresh}) Job Radar` : 'Job Radar';
+
+  const counts = { all: all.filter((j) => trackState(j.id) !== 'hidden' && passesFilters(j)).length };
+  for (const t of Object.values(tracker)) counts[t.state] = (counts[t.state] || 0) + 1;
+  for (const b of document.querySelectorAll('.tab')) {
+    b.querySelector('.count').textContent = counts[b.dataset.tab] || '';
+    b.classList.toggle('on', b.dataset.tab === tab);
+  }
+
+  if (!list.length) {
+    const why = tab === 'saved' ? 'No liked jobs yet. Tap ♥ on a job to keep it here.'
+      : tab === 'applied' ? 'Nothing marked applied yet.'
+      : tab === 'hidden' ? 'No hidden jobs.'
+      : running ? 'Loading jobs…'
+      : jobs.size && filtersOn() ? 'No jobs match these filters yet. Job details are still loading; matching jobs appear as soon as they are read.'
+      : 'No jobs yet. Press Search.';
+    $('list').replaceChildren(el('p', 'empty', why));
+  } else {
+    $('list').replaceChildren(...list.map(renderCard));
+  }
+  if (selectedId && !(jobs.has(selectedId) || tracker[selectedId])) closeDetail();
+  renderDetail();
+}
+
+const FACT_ICONS = { place: '⌖', wp: '⌂', type: '◷', level: '▲', years: '★', salary: '$' };
+function factsFor(j, d, ins) {
+  const wp = workplaceOf(j);
+  const facts = [
+    ['place', j.location],
+    ['wp', WP_LABEL[wp.type] || ''],
+    ['type', d?.employmentType],
+    ['level', d?.seniority && d.seniority !== 'Not Applicable' ? d.seniority : ''],
+    ['years', ins?.years ? `${ins.years}+ years exp` : ''],
+    ['salary', j.salary],
+  ].filter(([, v]) => v);
+  const box = el('div', 'facts');
+  for (const [k, v] of facts) {
+    const f = el('div', 'fact');
+    f.append(el('span', 'fi', FACT_ICONS[k]), el('span', null, v));
+    box.append(f);
+  }
+  return box;
+}
+
+function footTags(j, d, ins) {
+  const foot = el('div', 'c-foot');
+  if (d?.status === 200 && d.applicants) foot.append(el('span', 'tag muted', d.applicants));
+  if (ins?.early) foot.append(el('span', 'tag early', 'Early applicant'));
+  const wp = workplaceOf(j);
+  if (WP_LABEL[wp.type]) foot.append(el('span', `tag wp-${wp.type}`, WP_LABEL[wp.type]));
+  if (ins?.visa) foot.append(el('span', `tag visa-${ins.visa}`, VISA_LABEL[ins.visa]));
+  if (!d) foot.append(el('span', 'tag muted', 'Reading details…'));
+  return foot;
+}
+
+function ringEl(ins, small) {
+  const r = el('div', 'ring' + (small ? ' sm' : ''));
+  if (ins?.score != null) {
+    r.classList.add(matchClass(ins.score));
+    r.style.setProperty('--p', ins.score);
+    r.append(el('b', null, `${ins.score}%`));
+  } else {
+    r.classList.add('none');
+    r.append(el('b', null, hasResume() ? '—' : '?'));
+  }
+  return r;
+}
+
+function ringLabel(ins) {
+  if (ins?.score != null) return el('div', `mlabel ${matchClass(ins.score)}`, matchWord(ins.score));
+  const lab = el('div', 'mlabel');
+  if (!hasResume()) {
+    const b = el('button', null, 'Add resume for match');
+    b.addEventListener('click', (e) => { e.stopPropagation(); openResume(); });
+    lab.append(b);
+  } else lab.textContent = ins ? 'No skills listed' : 'Scoring…';
+  return lab;
+}
+
+function applyLink(j, cls, text) {
+  const a = el('a', cls, text);
+  a.href = j.url || `https://www.linkedin.com/jobs/view/${j.id}/`;
+  a.target = '_blank'; a.rel = 'noopener';
+  a.addEventListener('click', (e) => { e.stopPropagation(); askApplied(j); });
+  return a;
+}
+
+function renderCard(j) {
+  const d = details.get(j.id);
+  const ins = insightsOf(j);
+  const st = trackState(j.id);
+  const li = el('li', 'card' + (j.id === selectedId ? ' sel' : ''));
+  li.dataset.id = j.id;
+
+  const body = el('div', 'c-body');
+  const top = el('div', 'c-top');
+  top.append(el('span', 'time', ageLabel(j.hi) || 'Posted recently'));
+  if (isNew(j)) top.append(el('span', 'tag new', 'NEW'));
+  if (st === 'saved') top.append(el('span', 'tag liked', '♥ Liked'));
+  if (st === 'applied') top.append(el('span', 'tag applied', '✓ Applied'));
+  const co = el('div', 'co', [j.company, d?.industry?.split(/,\s*|\s+and\s+/)[0]].filter(Boolean).join(' · '));
+  body.append(top, el('div', 'ctitle', j.title || `Job ${j.id}`), co, factsFor(j, d, ins), footTags(j, d, ins));
+
+  const side = el('div', 'c-side');
+  const ringBox = el('div');
+  ringBox.style.display = 'grid'; ringBox.style.justifyItems = 'center'; ringBox.style.gap = '4px';
+  ringBox.append(ringEl(ins), ringLabel(ins));
+  const acts = el('div', 'c-actions');
+  const like = el('button', 'icon-btn' + (st === 'saved' ? ' on-like' : ''), st === 'saved' ? '♥' : '♡');
+  like.title = st === 'saved' ? 'Unlike' : 'Like';
+  like.addEventListener('click', (e) => { e.stopPropagation(); setTrack(j.id, 'saved'); });
+  const nope = el('button', 'icon-btn', '⊘');
+  nope.title = st === 'hidden' ? 'Show again' : 'Not interested';
+  nope.addEventListener('click', (e) => { e.stopPropagation(); setTrack(j.id, 'hidden'); });
+  acts.append(like, nope, applyLink(j, 'apply', 'Apply ↗'));
+  side.append(ringBox, acts);
+
+  li.append(logoEl(j), body, side);
+  li.addEventListener('click', () => select(j.id));
+  return li;
+}
+
+function select(id) {
+  selectedId = id;
+  queueDetail(id, true);
+  document.body.classList.add('reading');
+  for (const c of document.querySelectorAll('.card')) c.classList.toggle('sel', c.dataset.id === id);
+  detailShownSig = '';
+  renderDetail();
+  $('detail').scrollTop = 0;
+}
+
+function closeDetail() {
+  selectedId = null;
+  document.body.classList.remove('reading');
+  for (const c of document.querySelectorAll('.card.sel')) c.classList.remove('sel');
+}
+
+let detailShownSig = '';
+function renderDetail() {
+  const box = $('detail');
+  const id = selectedId;
+  const j = id && (jobs.get(id) || (tracker[id] && { ...tracker[id].job, id }));
+  if (!j) { if (detailShownSig !== '') { detailShownSig = ''; box.replaceChildren(); } return; }
+  const d = details.get(id);
+  const st = trackState(id);
+  // Re-draw only when something about this job changed, so reading isn't interrupted.
+  const sig = [id, d?.status, st, ageLabel(j.hi), isNew(j), resumeVersion].join('|');
+  if (sig === detailShownSig) return;
+  detailShownSig = sig;
+  const ins = insightsOf(j);
+
+  const close = el('button', 'icon-btn d-close', '✕');
+  close.title = 'Close';
+  close.addEventListener('click', closeDetail);
+
+  // header card
+  const head = el('div', 'd-head');
+  const right = el('div');
+  const top = el('div', 'c-top');
+  top.append(el('span', 'time', ageLabel(j.hi) || 'Posted recently'));
+  if (isNew(j)) top.append(el('span', 'tag new', 'NEW'));
+  const companyUrl = d?.companyUrl || j.companyUrl;
+  const company = el(companyUrl ? 'a' : 'span', 'company', j.company || 'Unknown company');
+  if (companyUrl) { company.href = companyUrl; company.target = '_blank'; company.rel = 'noopener'; company.title = 'Company page on LinkedIn'; }
+  const co = el('div', 'co');
+  co.append(company);
+  if (d?.industry) co.append(document.createTextNode(' · ' + d.industry));
+  right.append(top, el('h2', null, j.title || `Job ${id}`), co);
+  const acts = el('div', 'd-actions');
+  const mk = (state, off, on) => {
+    const b = el('button', 'act' + (st === state ? ` on-${state}` : ''), st === state ? on : off);
+    b.addEventListener('click', () => setTrack(id, state));
+    return b;
+  };
+  acts.append(applyLink(j, 'act primary', 'Apply on LinkedIn ↗'), mk('saved', '♡ Like', '♥ Liked'), mk('applied', 'Mark applied', '✓ Applied'), mk('hidden', '⊘ Not interested', 'Show again'));
+  head.append(logoEl(j, true), right, factsFor(j, d, ins), footTags(j, d, ins), acts);
+
+  const parts = [close, head, matchSection(j, ins)];
+
+  // why remote / sponsorship
+  const wp = workplaceOf(j);
+  if (wp.type !== 'pending' || ins?.visa) {
+    const s = el('div', 'section');
+    s.append(el('h3', null, 'Work model & sponsorship'));
+    if (wp.type !== 'pending') s.append(el('p', 'why', `${WP_LABEL[wp.type]}: ${wp.why}`));
+    if (ins?.visa) {
+      const re = ins.visa === 'clearance' ? VISA_RX.clearance : ins.visa === 'no' ? VISA_RX.noSponsor : VISA_RX.sponsor;
+      s.append(el('p', 'why', `${VISA_LABEL[ins.visa]}: "${snippet((d.descriptionText || '').replace(/\s+/g, ' '), re)}"`));
+    } else if (d?.status === 200) {
+      s.append(el('p', 'why', 'Sponsorship: the description doesn\'t say.'));
+    }
+    parts.push(s);
+  }
+
+  // job description
+  const jd = el('div', 'section');
+  jd.append(el('h3', null, 'About the job'));
+  const body = el('div', 'jd');
+  if (d?.descriptionHtml) body.innerHTML = d.descriptionHtml; // cleaned to simple tags by server.mjs
+  else body.textContent = d?.status && d.status !== 200 ? 'LinkedIn did not return the description. Use "Apply on LinkedIn" to read it there.' : 'Loading description…';
+  jd.append(body);
+  parts.push(jd);
+
+  // company
+  const cs = el('div', 'section');
+  cs.append(el('h3', null, 'Company'));
+  const cline = el('p', 'why');
+  cline.append(document.createTextNode([j.company, d?.industry].filter(Boolean).join(' · ') || 'Unknown'));
+  cs.append(cline);
+  if (companyUrl) {
+    const a = el('a', 'company', 'Company size, people and more on LinkedIn ↗');
+    a.href = companyUrl; a.target = '_blank'; a.rel = 'noopener';
+    const p = el('p', 'why'); p.append(a); cs.append(p);
+  }
+  parts.push(cs);
+
+  box.replaceChildren(...parts);
+}
+
+function matchSection(j, ins) {
+  const s = el('div', 'section');
+  s.append(el('h3', null, 'How well you match'));
+  if (!hasResume()) {
+    s.append(el('p', 'why', 'Add your resume to see a match score: skills, experience and job title.'));
+    const b = el('button', 'act', 'Add resume');
+    b.style.marginTop = '10px';
+    b.addEventListener('click', openResume);
+    s.append(b);
+    return s;
+  }
+  if (!ins) { s.append(el('p', 'why', 'Reading the description…')); return s; }
+  const top = el('div', 'match-top');
+  const ringBox = el('div');
+  ringBox.style.display = 'grid'; ringBox.style.justifyItems = 'center'; ringBox.style.gap = '4px';
+  ringBox.append(ringEl(ins), ringLabel(ins));
+  const bars = el('div', 'bars');
+  const bar = (name, v, note) => {
+    const row = el('div', 'bar');
+    const track = el('i'); const fill = el('b');
+    fill.style.width = `${v ?? 0}%`;
+    fill.style.setProperty('--c', v == null ? 'var(--fair)' : v >= 80 ? 'var(--strong)' : v >= 60 ? 'var(--good)' : 'var(--fair)');
+    track.append(fill);
+    row.append(el('span', null, name), track, el('span', null, v == null ? '—' : `${v}%`));
+    row.title = note;
+    return row;
+  };
+  bars.append(
+    bar('Skills', ins.parts.skills, `${ins.have.length} of ${ins.jobSkills.length} skills the job mentions are on your resume`),
+    bar('Experience', ins.parts.exp, ins.years ? `Asks ${ins.years}+ years` + (ins.myYears != null ? `; you have ${ins.myYears}` : '; add your years in Resume') : 'The job doesn\'t say how many years'),
+    bar('Job title', ins.parts.title, 'How much of the job title appears on your resume'),
+  );
+  top.append(ringBox, bars);
+  s.append(top);
+  const notes = [];
+  if (ins.jobSkills.length) notes.push(`${ins.have.length} of ${ins.jobSkills.length} skills this job mentions are on your resume.`);
+  if (ins.years) notes.push(`Asks ${ins.years}+ years of experience` + (ins.myYears != null ? `; you have ${ins.myYears}.` : '; add your years in Resume.'));
+  if (notes.length) s.append(el('p', 'why', notes.join(' ')));
+  const tags = el('div', 'tags');
+  for (const sk of ins.have) tags.append(el('span', 'tag have', '✓ ' + sk));
+  for (const sk of ins.missing) tags.append(el('span', 'tag miss', '✗ ' + sk));
+  if (tags.childElementCount) s.append(tags);
+  return s;
+}
+
+// After you open "Apply", ask once you come back whether you applied.
+let pendingApply = null;
+function askApplied(j) {
+  pendingApply = j;
+}
+window.addEventListener('focus', () => {
+  if (!pendingApply || trackState(pendingApply.id) === 'applied') { pendingApply = null; return; }
+  $('toastText').textContent = `Did you apply to ${pendingApply.title || 'this job'}${pendingApply.company ? ' at ' + pendingApply.company : ''}?`;
+  $('toast').classList.add('show');
+});
+$('toastYes').addEventListener('click', () => {
+  if (pendingApply) setTrack(pendingApply.id, 'applied');
+  pendingApply = null; $('toast').classList.remove('show');
+});
+$('toastNo').addEventListener('click', () => { pendingApply = null; $('toast').classList.remove('show'); });
+
+function status(text, warn) {
+  $('status').textContent = text;
+  $('status').className = warn ? 'warn' : '';
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---- loading jobs from the local server ----
+async function getPage(params, attempt = 0) {
+  const r = await fetch('/api/page?' + params);
+  const data = await r.json();
+  if (data.status === 429 && attempt < 3) {
+    const wait = 10 + attempt * 10;
+    status(`LinkedIn asked us to slow down. Waiting ${wait} s…`, true);
+    await sleep(wait * 1000);
+    return getPage(params, attempt + 1);
+  }
+  return data;
+}
+
+function baseParams(windowSeconds) {
+  // LinkedIn's public feed doesn't say which jobs are remote and may ignore
+  // f_WT, so "Remote only" also puts "remote" in the search words.
+  let keywords = $('keywords').value.trim();
+  const wantRemote = !!$('workplace').value;
+  if (wantRemote && !/\bremote\b/i.test(keywords)) keywords = `remote ${keywords}`.trim();
+  const p = new URLSearchParams({ keywords, location: $('location').value.trim(), f_TPR: 'r' + Math.round(windowSeconds) });
+  if (wantRemote) p.set('f_WT', '2'); // ignored by the public feed today, but harmless
+  return p;
+}
+
+// Loads pages until LinkedIn runs out, repeats itself, or maxJobs is reached.
+async function loadPages(base, maxJobs, label) {
+  const seenThisRun = new Set();
+  let start = 0, found = 0, added = 0, retriedEmpty = false;
+  while (!stopRequested && found < maxJobs) {
+    if (label) status(`${label} ${start + 1}–${start + 10}…`);
+    const params = new URLSearchParams(base);
+    params.set('start', String(start));
+    let data;
+    try { data = await getPage(params); } catch { return { added, problem: 'Could not reach the local server. Is it still running?' }; }
+    if (data.status !== 200) return { added, problem: `LinkedIn answered ${data.status}. Showing what was loaded so far; it will try again next minute.` };
+    lastCheckAt = data.fetchedAt;
+    if (!data.jobs.length) {
+      // LinkedIn sometimes sends an empty page by mistake: try it once more.
+      if (!retriedEmpty) { retriedEmpty = true; await sleep(4000); continue; }
+      break; // no more results
+    }
+    retriedEmpty = false;
+    const repeats = data.jobs.filter((j) => seenThisRun.has(j.id)).length;
+    for (const j of data.jobs) { if (remember(j, data.fetchedAt)) added++; seenThisRun.add(j.id); }
+    found += data.jobs.length - repeats;
+    start += data.jobs.length;
+    render();
+    if (repeats === data.jobs.length) break; // LinkedIn is repeating itself: end of results
+    if (!data.cached) await sleep(PAGE_GAP_MS);
+  }
+  return { added };
+}
+
+function setRunning(on) {
+  running = on;
+  $('go').disabled = on;
+  $('stop').disabled = !on;
+}
+
+const FORM_FIELDS = ['keywords', 'location', 'window', 'max', 'exclude', 'workplace', 'sort', 'fVisa', 'fMatch', 'fSeniority', 'fType', 'fApplicants', 'fIndustry'];
+const FORM_CHECKS = ['auto', 'fSalary'];
+function saveForm() {
+  const v = {};
+  for (const k of FORM_FIELDS) v[k] = $(k).value;
+  for (const k of FORM_CHECKS) v[k] = $(k).checked;
+  store.set('form', v);
+}
+
+function summary() {
+  const n = listForTab().length;
+  const loaded = searchJobs().filter((j) => details.get(j.id)?.status === 200).length;
+  const total = searchJobs().length;
+  return `${n} jobs, ${$('sort').value === 'match' && hasResume() ? 'best match first' : 'newest first'}.` + (filtersOn() && loaded < total ? ` Details loaded for ${loaded} of ${total}; more appear as they load.` : '') +
+    ($('auto').checked ? ' Checking for new jobs every minute.' : ` Updated ${new Date().toLocaleTimeString()}.`);
+}
+
+// Full search: every page of the chosen "Posted within" window.
+async function search() {
+  if (running) return;
+  setRunning(true); stopRequested = false;
+  saveForm();
+  const base = baseParams(Number($('window').value));
+  const key = base.toString();
+  if (key !== searchKey) { jobs = new Map(); searchKey = key; searchDoneAt = 0; newSinceSearch = 0; selectedId = null; }
+  const { problem } = await loadPages(base, Number($('max').value) || 200, 'Loading jobs');
+  searchDoneAt = Date.now();
+  setRunning(false);
+  render();
+  queueVisibleDetails();
+  if (problem) status(problem, true);
+  else if (!searchJobs().length && jobs.size) status(`LinkedIn sent ${jobs.size} jobs, but none were posted within your "Posted within" time; its newest listings are sometimes 15–20 minutes behind. Try a longer time.`, true);
+  else status(summary() + (stopRequested ? ' (Stopped early.)' : ''));
+}
+
+// Every minute: ask only for jobs posted since the last check (plus a margin),
+// which is usually one request, and merge them in.
+async function checkForNew() {
+  if (running || !searchKey || !$('auto').checked) return;
+  setRunning(true); stopRequested = false;
+  const since = (Date.now() - lastCheckAt) / 1000 + 60; // a minute of overlap
+  const windowSeconds = Math.min(Number($('window').value), Math.max(120, since));
+  const { added, problem } = await loadPages(baseParams(windowSeconds), 50, ''); // at most ~5 requests
+  newSinceSearch += added;
+  setRunning(false);
+  render();
+  // New jobs jump the queue so their details show up first.
+  for (const j of searchJobs().filter(isNew).reverse()) if (!details.has(j.id)) queueDetail(j.id, true);
+  queueVisibleDetails();
+  if (problem) status(problem, true);
+  else status(`Checked ${new Date().toLocaleTimeString()}: ` + (added ? `${added} new` : 'nothing new') +
+    (newSinceSearch ? ` (${newSinceSearch} new since search)` : '') + '. ' + summary());
+}
+
+// ---- job details (JD, industry, seniority…) ----
+// Loaded one at a time in the background, newest jobs first. The job list
+// itself has priority: details wait while a search or check is running.
+const detailWanted = [];
+let detailBusy = false;
+
+function queueDetail(id, urgent) {
+  if (!id || details.get(id)?.status === 200) return;
+  const i = detailWanted.indexOf(id);
+  if (i >= 0) detailWanted.splice(i, 1);
+  if (urgent) detailWanted.unshift(id); else detailWanted.push(id);
+  pumpDetails();
+}
+
+async function pumpDetails() {
+  if (detailBusy) return;
+  detailBusy = true;
+  while (detailWanted.length) {
+    if (running) { await sleep(1000); continue; }
+    const id = detailWanted.shift();
+    if (details.get(id)?.status === 200) continue;
+    try {
+      const r = await fetch('/api/job?id=' + id);
+      const d = await r.json();
+      if (d.status === 200) d.descriptionText = d.descriptionHtml.replace(/<[^>]+>/g, ' ');
+      details.set(id, d);
+      render();
+      if (!running && $('status').className !== 'warn' && filtersOn()) status(summary());
+      if (d.status === 429) { detailWanted.unshift(id); await sleep(15000); }
+    } catch {
+      await sleep(5000);
+    }
+  }
+  detailBusy = false;
+}
+
+// Details for every job in the search, newest first (filters need them).
+function queueVisibleDetails() {
+  for (const j of searchJobs()) if (!details.has(j.id)) queueDetail(j.id, false);
+}
+
+// ---- resume dialog ----
+function showResumeSkills() {
+  const found = skillsIn($('resumeText').value);
+  $('resumeSkills').replaceChildren(...(found.length
+    ? [el('span', 'why', `Skills found (${found.length}): `), ...found.map((k) => el('span', 'tag have', k))]
+    : [el('span', 'why', 'No skills recognized yet.')]));
+}
+function openResume() {
+  $('resumeText').value = resume.text;
+  $('resumeYears').value = resume.years;
+  showResumeSkills();
+  $('resumeDlg').showModal();
+}
+function updateResumeButton() {
+  $('resumeBtn').querySelector('.lbl').textContent = hasResume() ? `Resume ✓ ${resumeSkills.size} skills` : 'Resume';
+}
+$('resumeBtn').addEventListener('click', openResume);
+$('resumeCancel').addEventListener('click', () => $('resumeDlg').close());
+$('resumeText').addEventListener('input', showResumeSkills);
+$('resumeFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    $('resumeText').value = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name) ? await pdfText(f) : await f.text();
+  } catch (err) {
+    $('resumeText').value = '';
+    alert((err && err.message) || 'Could not read that file. Try pasting the text instead.');
+  }
+  showResumeSkills();
+});
+$('resumeSave').addEventListener('click', () => {
+  setResume($('resumeText').value, $('resumeYears').value);
+  updateResumeButton(); detailShownSig = ''; render(); if (searchKey) status(summary());
+});
+$('resumeClear').addEventListener('click', () => {
+  setResume('', '');
+  $('resumeDlg').close();
+  updateResumeButton(); detailShownSig = ''; render(); if (searchKey) status(summary());
+});
+updateResumeButton();
+
+// ---- wiring ----
+$('form').addEventListener('submit', (e) => { e.preventDefault(); search(); });
+$('stop').addEventListener('click', () => { stopRequested = true; });
+for (const id of ['exclude', 'workplace', 'sort', 'fVisa', 'fMatch', 'fIndustry', 'fSeniority', 'fType', 'fApplicants', 'fSalary']) {
+  $(id).addEventListener(id === 'exclude' ? 'input' : 'change', () => { saveForm(); render(); if (searchKey) status(summary()); });
+}
+$('clearFilters').addEventListener('click', () => {
+  for (const id of ['fIndustry', 'fSeniority', 'fType', 'fApplicants', 'fVisa', 'fMatch', 'exclude']) $(id).value = '';
+  $('fSalary').checked = false;
+  saveForm(); render(); if (!running && searchKey) status(summary());
+});
+$('auto').addEventListener('change', () => { saveForm(); if (!running && searchKey) status(summary()); });
+for (const b of document.querySelectorAll('.tab')) {
+  b.addEventListener('click', () => { tab = b.dataset.tab; closeDetail(); render(); $('list').scrollTop = 0; });
+}
+$('scrim').addEventListener('click', closeDetail);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('reading')) closeDetail(); });
+setInterval(checkForNew, CHECK_EVERY_MS);
+setInterval(() => { if (!running) { detailShownSig = ''; render(); } }, 30_000); // keep "x min ago" current
+
+const saved = store.get('form', null);
+if (saved) {
+  for (const k of FORM_FIELDS) if (saved[k] != null && k !== 'fIndustry') $(k).value = saved[k];
+  for (const k of FORM_CHECKS) if (saved[k] != null) $(k).checked = saved[k];
+  if (saved.auto == null) $('auto').checked = true;
+}
+render();
+</script>
+</body>
+</html>
