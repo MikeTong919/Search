@@ -54,6 +54,18 @@
   .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
   .btn:disabled { opacity: .5; cursor: default; }
   .filters select { max-width: 200px; }
+  .field { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 11px; color: var(--muted); }
+  .ms { position: relative; }
+  .ms-btn { position: relative; min-width: 150px; max-width: 230px; text-align: left; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 7px 28px 7px 10px; cursor: pointer; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ms-btn::after { content: '▾'; position: absolute; right: 10px; color: var(--muted); }
+  .ms.on .ms-btn { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .ms-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 28px rgba(10,12,20,.18); padding: 6px; min-width: 250px; max-height: 340px; overflow-y: auto; }
+  .ms-opt { flex-direction: row; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; color: var(--fg); font-weight: 500; cursor: pointer; }
+  .ms-opt:hover { background: var(--bg); }
+  .ms-opt input { margin: 0; accent-color: var(--accent); }
+  .ms-foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 4px 2px; font-size: 12px; color: var(--muted); }
+  .ms-foot button { border: 0; background: none; color: var(--accent); font-weight: 700; cursor: pointer; padding: 2px 4px; }
+  .ms-empty { padding: 8px; color: var(--muted); font-size: 13px; }
   .feed-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px 6px; flex-wrap: wrap; }
   #status { font-size: 13px; color: var(--muted); }
   #status.warn { color: var(--warn); }
@@ -160,7 +172,8 @@
     .tab .count { margin-left: 4px; }
     .topbar { padding: 10px 12px; }
     #keywords, #location, #exclude { width: 100%; }
-    .row > label { flex: 1 1 140px; }
+    .row > label, .row > .field { flex: 1 1 140px; }
+    .ms-btn { width: 100%; max-width: none; }
     #list { padding: 6px 12px 40px; }
     .feed-head { padding: 12px 12px 4px; }
     .card { grid-template-columns: 44px 1fr; padding: 14px; }
@@ -182,6 +195,7 @@
     <button class="tab on" data-tab="all"><span class="ico">◎</span><span class="lbl">Recommended</span><span class="count"></span></button>
     <button class="tab" data-tab="saved"><span class="ico">♥</span><span class="lbl">Liked</span><span class="count"></span></button>
     <button class="tab" data-tab="applied"><span class="ico">✓</span><span class="lbl">Applied</span><span class="count"></span></button>
+    <button class="tab" data-tab="unclear" title="Jobs that don't say whether they're remote"><span class="ico">?</span><span class="lbl">Work model unclear</span><span class="count"></span></button>
     <button class="tab" data-tab="hidden"><span class="ico">⊘</span><span class="lbl">Not interested</span><span class="count"></span></button>
     <div class="side-h">You</div>
     <button class="side-btn" id="resumeBtn" type="button"><span class="ico">📄</span><span class="lbl">Resume</span></button>
@@ -213,25 +227,14 @@
             <option value="">Any</option>
           </select>
         </label>
-        <label>Max jobs <input type="number" id="max" value="200" min="10" max="1000" step="10"></label>
+        <label>Max jobs <input type="number" id="max" value="1000" min="10" max="1000" step="10"></label>
         <button type="button" class="btn ghost" id="stop" disabled>Stop</button>
         <button type="submit" class="btn" id="go">Search</button>
       </form>
       <div class="row filters">
-        <label>Industry <select id="fIndustry"><option value="">All industries</option></select></label>
-        <label>Experience level
-          <select id="fSeniority">
-            <option value="">Any</option>
-            <option>Internship</option><option>Entry level</option><option>Associate</option>
-            <option>Mid-Senior level</option><option>Director</option><option>Executive</option>
-          </select>
-        </label>
-        <label>Job type
-          <select id="fType">
-            <option value="">Any</option>
-            <option>Full-time</option><option>Contract</option><option>Part-time</option><option>Temporary</option><option>Internship</option>
-          </select>
-        </label>
+        <div class="field">Industry <div class="ms" id="fIndustry"><button type="button" class="ms-btn"></button><div class="ms-panel" hidden></div></div></div>
+        <div class="field">Experience level <div class="ms" id="fSeniority"><button type="button" class="ms-btn"></button><div class="ms-panel" hidden></div></div></div>
+        <div class="field">Job type <div class="ms" id="fType"><button type="button" class="ms-btn"></button><div class="ms-panel" hidden></div></div></div>
         <label>Applicants
           <select id="fApplicants">
             <option value="">Any</option>
@@ -551,12 +554,85 @@ async function pdfText(file) {
 }
 
 // ---- filters ----
-const detailFilters = () => $('fIndustry').value || $('fSeniority').value || $('fType').value || $('fApplicants').value || $('fVisa').value || $('fMatch').value;
+// ---- multi-select dropdowns (Industry, Experience level, Job type) ----
+const MS = {}; // id -> { selected: Set, options: [[value, label]], anyText, pending }
+function msInit(id, options, anyText) {
+  MS[id] = { selected: new Set(), options, anyText, pending: null };
+  const root = $(id);
+  root.querySelector('.ms-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = root.querySelector('.ms-panel');
+    const opening = panel.hidden;
+    closeAllMs();
+    panel.hidden = !opening;
+  });
+  root.querySelector('.ms-panel').addEventListener('click', (e) => e.stopPropagation());
+  msDraw(id);
+}
+function closeAllMs() {
+  for (const [id, m] of Object.entries(MS)) {
+    const panel = $(id).querySelector('.ms-panel');
+    if (panel.hidden) continue;
+    panel.hidden = true;
+    if (m.pending) { m.options = m.pending; m.pending = null; msDraw(id); }
+  }
+}
+document.addEventListener('click', closeAllMs);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllMs(); });
+const msValues = (id) => [...MS[id].selected];
+function msSet(id, values) { MS[id].selected = new Set(values || []); msDraw(id); }
+function msSetOptions(id, options) {
+  const m = MS[id];
+  // Don't reshuffle a list while you're ticking boxes in it.
+  if (!$(id).querySelector('.ms-panel').hidden) { m.pending = options; return; }
+  m.options = options; msDraw(id);
+}
+// Button text and counter only (ticking a box doesn't redraw the list).
+function msLabel(id) {
+  const m = MS[id], root = $(id);
+  const sel = [...m.selected];
+  const btn = root.querySelector('.ms-btn');
+  btn.textContent = !sel.length ? m.anyText : sel.length === 1 ? sel[0] : `${sel.length} selected`;
+  btn.title = sel.join(', ');
+  root.classList.toggle('on', sel.length > 0);
+  const count = root.querySelector('.ms-count');
+  if (count) count.textContent = sel.length ? `${sel.length} selected` : 'Pick one or more';
+}
+function msDraw(id) {
+  const m = MS[id], root = $(id);
+  const sel = [...m.selected];
+  msLabel(id);
+  const opts = [...m.options];
+  for (const v of sel) if (!opts.some(([o]) => o === v)) opts.push([v, v]); // keep picks that aren't loaded yet
+  const rows = opts.map(([v, label]) => {
+    const row = el('label', 'ms-opt');
+    const cb = el('input');
+    cb.type = 'checkbox';
+    cb.checked = m.selected.has(v);
+    cb.addEventListener('change', () => {
+      if (cb.checked) m.selected.add(v); else m.selected.delete(v);
+      msLabel(id); onFilterChange();
+    });
+    row.append(cb, el('span', null, label));
+    return row;
+  });
+  const foot = el('div', 'ms-foot');
+  foot.append(el('span', 'ms-count'));
+  const clear = el('button', null, 'Clear');
+  clear.type = 'button';
+  clear.addEventListener('click', () => { m.selected.clear(); msDraw(id); onFilterChange(); });
+  foot.append(clear);
+  root.querySelector('.ms-panel').replaceChildren(...(rows.length ? rows : [el('div', 'ms-empty', 'Industries appear as job details load…')]), foot);
+  msLabel(id);
+}
+const splitIndustry = (s) => (s || '').split(/,\s*|\s+and\s+/).filter(Boolean);
+
+const detailFilters = () => msValues('fIndustry').length || msValues('fSeniority').length || msValues('fType').length || $('fApplicants').value || $('fVisa').value || $('fMatch').value;
 function filtersOn() {
   return $('workplace').value || detailFilters();
 }
 
-function passesFilters(j) {
+function passesFilters(j, ignoreWorkplace) {
   const d = details.get(j.id);
   const words = $('exclude').value.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean);
   if (words.length) {
@@ -564,7 +640,7 @@ function passesFilters(j) {
     if (words.some((w) => text.includes(w))) return false;
   }
   if ($('fSalary').checked && !j.salary) return false;
-  const wp = $('workplace').value;
+  const wp = ignoreWorkplace ? '' : $('workplace').value;
   if (wp) {
     const t = workplaceOf(j).type;
     if (wp === 'remote' && t !== 'remote') return false;
@@ -573,9 +649,11 @@ function passesFilters(j) {
   if (!filtersOn()) return true;
   if (!detailFilters()) return true;
   if (!d || d.status !== 200) return false; // shown once its details have loaded
-  if ($('fIndustry').value && !(d.industry || '').split(/,\s*|\s+and\s+/).includes($('fIndustry').value)) return false;
-  if ($('fSeniority').value && d.seniority !== $('fSeniority').value) return false;
-  if ($('fType').value && d.employmentType !== $('fType').value) return false;
+  // Within a filter, any ticked choice matches (Entry level OR Associate).
+  const inds = msValues('fIndustry'), lvls = msValues('fSeniority'), types = msValues('fType');
+  if (inds.length && !splitIndustry(d.industry).some((x) => inds.includes(x))) return false;
+  if (lvls.length && !lvls.includes(d.seniority)) return false;
+  if (types.length && !types.includes(d.employmentType)) return false;
   if ($('fApplicants').value) {
     const n = applicantCount(d.applicants);
     if (n == null || n >= Number($('fApplicants').value)) return false;
@@ -594,7 +672,11 @@ function searchJobs() {
     .sort((a, b) => (b.lo == null) - (a.lo == null) || mid(b) - mid(a) || b.id.localeCompare(a.id));
 }
 
+// Jobs that never say remote or on-site: kept here so "Remote only" doesn't lose them.
+const unclearJobs = () => searchJobs().filter((j) => trackState(j.id) !== 'hidden' && workplaceOf(j).type === 'unknown' && passesFilters(j, true));
+
 function listForTab() {
+  if (tab === 'unclear') return unclearJobs();
   if (tab === 'all') {
     const list = searchJobs().filter((j) => trackState(j.id) !== 'hidden' && passesFilters(j));
     if ($('sort').value === 'match' && hasResume()) {
@@ -616,17 +698,13 @@ function refreshIndustryOptions() {
   for (const j of searchJobs()) {
     const ind = details.get(j.id)?.industry;
     if (!ind) continue;
-    for (const one of ind.split(/,\s*|\s+and\s+/).filter(Boolean)) counts.set(one, (counts.get(one) || 0) + 1);
+    for (const one of splitIndustry(ind)) counts.set(one, (counts.get(one) || 0) + 1);
   }
-  const sel = $('fIndustry');
-  const current = sel.value;
   const opts = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const sig = opts.map(([k, v]) => k + v).join('|');
-  if (sel.dataset.sig === sig) return;
-  sel.dataset.sig = sig;
-  sel.replaceChildren(new Option('All industries', ''), ...opts.map(([k, v]) => new Option(`${k} (${v})`, k)));
-  if (current && !counts.has(current)) sel.append(new Option(current, current));
-  sel.value = current;
+  if (refreshIndustryOptions.sig === sig) return;
+  refreshIndustryOptions.sig = sig;
+  msSetOptions('fIndustry', opts.map(([k, v]) => [k, `${k} (${v})`]));
 }
 
 // ---- rendering ----
@@ -653,7 +731,7 @@ function render() {
   const fresh = all.filter(isNew).length;
   document.title = fresh ? `(${fresh}) Job Radar` : 'Job Radar';
 
-  const counts = { all: all.filter((j) => trackState(j.id) !== 'hidden' && passesFilters(j)).length };
+  const counts = { all: all.filter((j) => trackState(j.id) !== 'hidden' && passesFilters(j)).length, unclear: unclearJobs().length };
   for (const t of Object.values(tracker)) counts[t.state] = (counts[t.state] || 0) + 1;
   for (const b of document.querySelectorAll('.tab')) {
     b.querySelector('.count').textContent = counts[b.dataset.tab] || '';
@@ -664,6 +742,7 @@ function render() {
     const why = tab === 'saved' ? 'No liked jobs yet. Tap ♥ on a job to keep it here.'
       : tab === 'applied' ? 'Nothing marked applied yet.'
       : tab === 'hidden' ? 'No hidden jobs.'
+      : tab === 'unclear' ? 'No unclear jobs. Every job loaded so far says whether it is remote, hybrid or on-site.'
       : running ? 'Loading jobs…'
       : jobs.size && filtersOn() ? 'No jobs match these filters yet. Job details are still loading; matching jobs appear as soon as they are read.'
       : 'No jobs yet. Press Search.';
@@ -837,6 +916,7 @@ function renderDetail() {
     const s = el('div', 'section');
     s.append(el('h3', null, 'Work model & sponsorship'));
     if (wp.type !== 'pending') s.append(el('p', 'why', `${WP_LABEL[wp.type]}: ${wp.why}`));
+    if (wp.type === 'unknown') s.append(el('p', 'why', 'LinkedIn\'s public listing doesn\'t show the work model. Open the job on LinkedIn (while signed in) to see whether it\'s remote.'));
     if (ins?.visa) {
       const re = ins.visa === 'clearance' ? VISA_RX.clearance : ins.visa === 'no' ? VISA_RX.noSponsor : VISA_RX.sponsor;
       s.append(el('p', 'why', `${VISA_LABEL[ins.visa]}: "${snippet((d.descriptionText || '').replace(/\s+/g, ' '), re)}"`));
@@ -851,7 +931,7 @@ function renderDetail() {
   jd.append(el('h3', null, 'About the job'));
   const body = el('div', 'jd');
   if (d?.descriptionHtml) body.innerHTML = d.descriptionHtml; // cleaned to simple tags by server.mjs
-  else body.textContent = d?.status && d.status !== 200 ? 'LinkedIn did not return the description. Use "Apply on LinkedIn" to read it there.' : 'Loading description…';
+  else body.textContent = d?.status && d.status !== 200 ? `Couldn't load the description. ${failureText(d)} It will be tried again in a couple of minutes, or use "Apply on LinkedIn" to read it there.` : 'Loading description…';
   jd.append(body);
   parts.push(jd);
 
@@ -940,13 +1020,32 @@ function status(text, warn) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---- loading jobs from the local server ----
-async function getPage(params, attempt = 0) {
+// What went wrong, in plain words. Status codes from server.mjs:
+// 0 = never reached LinkedIn (network), -1 = bug in the local server,
+// 429 = LinkedIn rate limit, 5xx = LinkedIn's own error, other = refused.
+function failureText(data) {
+  const s = data.status;
+  if (s === 0) return `Couldn't connect to LinkedIn: ${data.error || 'network problem'}. Check your internet connection.`;
+  if (s === -1) return `The local server hit an error (${data.error}). If this keeps happening, restart it with: node website/server.mjs`;
+  if (s === 429) return 'LinkedIn asked us to slow down (error 429).';
+  if (s >= 500) return `LinkedIn had a temporary problem on its side (error ${s}).`;
+  return `LinkedIn refused the request (error ${s}).`;
+}
+const RETRYABLE = (s) => s === 0 || s === 429 || s >= 500;
+
+// Network problems and LinkedIn's own errors usually pass quickly, so retry a
+// few times (longer waits for "slow down") before giving up.
+async function getPage(params, attempt = 1) {
   const r = await fetch('/api/page?' + params);
   const data = await r.json();
-  if (data.status === 429 && attempt < 3) {
-    const wait = 10 + attempt * 10;
-    status(`LinkedIn asked us to slow down. Waiting ${wait} s…`, true);
-    await sleep(wait * 1000);
+  data.tries = attempt;
+  if (RETRYABLE(data.status) && attempt <= 3 && !stopRequested) {
+    // LinkedIn answers 429 or 500 when asked too often: wait 10/20/40 s. Network problems: 5/10/20 s.
+    const wait = data.status === 0 ? 5 * 2 ** (attempt - 1) : 10 * 2 ** (attempt - 1);
+    for (let left = wait; left > 0 && !stopRequested; left--) {
+      status(`${failureText(data)} Trying again in ${left} s (retry ${attempt} of 3)…`, true);
+      await sleep(1000);
+    }
     return getPage(params, attempt + 1);
   }
   return data;
@@ -964,20 +1063,26 @@ function baseParams(windowSeconds) {
 }
 
 // Loads pages until LinkedIn runs out, repeats itself, or maxJobs is reached.
+// Returns { added, problem, complete, hitMax }. "complete" means LinkedIn ran
+// out of results, so nothing in this window was left unread.
 async function loadPages(base, maxJobs, label) {
   const seenThisRun = new Set();
-  let start = 0, found = 0, added = 0, retriedEmpty = false;
+  let start = 0, found = 0, added = 0, retriedEmpty = false, complete = false;
   while (!stopRequested && found < maxJobs) {
     if (label) status(`${label} ${start + 1}–${start + 10}…`);
     const params = new URLSearchParams(base);
     params.set('start', String(start));
     let data;
-    try { data = await getPage(params); } catch { return { added, problem: 'Could not reach the local server. Is it still running?' }; }
-    if (data.status !== 200) return { added, problem: `LinkedIn answered ${data.status}. Showing what was loaded so far; it will try again next minute.` };
+    try { data = await getPage(params); } catch { return { added, complete: false, problem: 'Could not reach the local server. Is it still running?' }; }
+    if (data.status !== 200) {
+      const tried = data.tries > 1 ? ` Tried ${data.tries} times.` : '';
+      return { added, complete: false, lastStatus: data.status, problem: `${failureText(data)}${tried} Showing the jobs loaded so far; the next check will re-read everything.` };
+    }
     lastCheckAt = data.fetchedAt;
     if (!data.jobs.length) {
       // LinkedIn sometimes sends an empty page by mistake: try it once more.
       if (!retriedEmpty) { retriedEmpty = true; await sleep(4000); continue; }
+      complete = true;
       break; // no more results
     }
     retriedEmpty = false;
@@ -986,11 +1091,34 @@ async function loadPages(base, maxJobs, label) {
     found += data.jobs.length - repeats;
     start += data.jobs.length;
     render();
-    if (repeats === data.jobs.length) break; // LinkedIn is repeating itself: end of results
+    if (repeats === data.jobs.length) { complete = true; break; } // LinkedIn is repeating itself: end of results
     if (!data.cached) await sleep(PAGE_GAP_MS);
   }
-  return { added };
+  return { added, complete, hitMax: !complete && found >= maxJobs };
 }
+
+// LinkedIn's public listings can show a job 15–20 minutes after it was posted,
+// so each minute check looks back 20 minutes, and the whole "Posted within"
+// window is re-read every 10 minutes and after any run that didn't finish.
+const LOOKBACK_S = 20 * 60;
+const FULL_REREAD_MS = 10 * 60_000;
+let lastFullAt = 0;
+let needFullReread = false;
+// When LinkedIn keeps refusing, pause the minute checks (2, 4, 8 … up to 15
+// minutes) instead of asking again and again; the next check re-reads everything.
+let pauseUntil = 0, pauseMs = 0;
+function afterRun(problem, lastStatus) {
+  if (problem && (lastStatus === 429 || lastStatus >= 500)) {
+    pauseMs = Math.min(15 * 60_000, pauseMs ? pauseMs * 2 : 2 * 60_000);
+    pauseUntil = Date.now() + pauseMs;
+    needFullReread = true;
+    return ` LinkedIn is limiting requests, so checks pause until ${new Date(pauseUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`;
+  }
+  if (!problem) { pauseMs = 0; pauseUntil = 0; }
+  return '';
+}
+const maxJobs = () => Math.min(1000, Number($('max').value) || 1000);
+const LIMIT_NOTE = ' Reached your "Max jobs" limit, so some older jobs in this window were not read (LinkedIn returns at most 1000 per search). Raise Max jobs or shorten "Posted within" to see them all.';
 
 function setRunning(on) {
   running = on;
@@ -998,12 +1126,14 @@ function setRunning(on) {
   $('stop').disabled = !on;
 }
 
-const FORM_FIELDS = ['keywords', 'location', 'window', 'max', 'exclude', 'workplace', 'sort', 'fVisa', 'fMatch', 'fSeniority', 'fType', 'fApplicants', 'fIndustry'];
+const FORM_FIELDS = ['keywords', 'location', 'window', 'max', 'exclude', 'workplace', 'sort', 'fVisa', 'fMatch', 'fApplicants'];
+const FORM_MULTI = ['fIndustry', 'fSeniority', 'fType'];
 const FORM_CHECKS = ['auto', 'fSalary'];
 function saveForm() {
   const v = {};
   for (const k of FORM_FIELDS) v[k] = $(k).value;
   for (const k of FORM_CHECKS) v[k] = $(k).checked;
+  v.multi = Object.fromEntries(FORM_MULTI.map((k) => [k, msValues(k)]));
   store.set('form', v);
 }
 
@@ -1023,39 +1153,52 @@ async function search() {
   const base = baseParams(Number($('window').value));
   const key = base.toString();
   if (key !== searchKey) { jobs = new Map(); searchKey = key; searchDoneAt = 0; newSinceSearch = 0; selectedId = null; }
-  const { problem } = await loadPages(base, Number($('max').value) || 200, 'Loading jobs');
+  pauseUntil = 0; pauseMs = 0; // you asked for this search, so don't wait
+  const { problem, complete, hitMax, lastStatus } = await loadPages(base, maxJobs(), 'Loading jobs');
+  const pauseNote = afterRun(problem, lastStatus);
+  if (complete) { lastFullAt = Date.now(); needFullReread = false; } else needFullReread = !hitMax && !stopRequested;
   searchDoneAt = Date.now();
   setRunning(false);
   render();
   queueVisibleDetails();
-  if (problem) status(problem, true);
+  if (problem) status(problem + pauseNote, true);
   else if (!searchJobs().length && jobs.size) status(`LinkedIn sent ${jobs.size} jobs, but none were posted within your "Posted within" time; its newest listings are sometimes 15–20 minutes behind. Try a longer time.`, true);
-  else status(summary() + (stopRequested ? ' (Stopped early.)' : ''));
+  else status(summary() + (stopRequested ? ' (Stopped early.)' : '') + (hitMax ? LIMIT_NOTE : ''));
 }
 
-// Every minute: ask only for jobs posted since the last check (plus a margin),
-// which is usually one request, and merge them in.
+// Every minute: read the last 20 minutes (or longer if checks were missed);
+// every 10 minutes, and after a run that didn't finish, re-read the whole window.
 async function checkForNew() {
   if (running || !searchKey || !$('auto').checked) return;
+  if (Date.now() < pauseUntil) return;
   setRunning(true); stopRequested = false;
-  const since = (Date.now() - lastCheckAt) / 1000 + 60; // a minute of overlap
-  const windowSeconds = Math.min(Number($('window').value), Math.max(120, since));
-  const { added, problem } = await loadPages(baseParams(windowSeconds), 50, ''); // at most ~5 requests
+  const selected = Number($('window').value);
+  const full = needFullReread || Date.now() - lastFullAt > FULL_REREAD_MS;
+  const since = (Date.now() - lastCheckAt) / 1000 + 60;
+  const windowSeconds = full ? selected : Math.min(selected, Math.max(LOOKBACK_S, since));
+  const { added, problem, complete, hitMax, lastStatus } = await loadPages(baseParams(windowSeconds), maxJobs(), full ? 'Re-reading all jobs' : '');
+  const pauseNote = afterRun(problem, lastStatus);
+  if (full) {
+    if (complete) { lastFullAt = Date.now(); needFullReread = false; } else needFullReread = !hitMax;
+  } else if (!complete && !hitMax) {
+    needFullReread = true;
+  }
   newSinceSearch += added;
   setRunning(false);
   render();
   // New jobs jump the queue so their details show up first.
   for (const j of searchJobs().filter(isNew).reverse()) if (!details.has(j.id)) queueDetail(j.id, true);
   queueVisibleDetails();
-  if (problem) status(problem, true);
-  else status(`Checked ${new Date().toLocaleTimeString()}: ` + (added ? `${added} new` : 'nothing new') +
-    (newSinceSearch ? ` (${newSinceSearch} new since search)` : '') + '. ' + summary());
+  if (problem) status(problem + pauseNote, true);
+  else status(`${full ? 'Re-read all jobs' : 'Checked the last ' + Math.round(windowSeconds / 60) + ' minutes'} at ${new Date().toLocaleTimeString()}: ` +
+    (added ? `${added} new` : 'nothing new') + (newSinceSearch ? ` (${newSinceSearch} new since search)` : '') + '. ' + summary() + (hitMax ? LIMIT_NOTE : ''));
 }
 
 // ---- job details (JD, industry, seniority…) ----
 // Loaded one at a time in the background, newest jobs first. The job list
 // itself has priority: details wait while a search or check is running.
 const detailWanted = [];
+const detailFails = new Map(); // id -> failed attempts in a row
 let detailBusy = false;
 
 function queueDetail(id, urgent) {
@@ -1076,12 +1219,22 @@ async function pumpDetails() {
     try {
       const r = await fetch('/api/job?id=' + id);
       const d = await r.json();
-      if (d.status === 200) d.descriptionText = d.descriptionHtml.replace(/<[^>]+>/g, ' ');
+      if (d.status === 200) {
+        d.descriptionText = d.descriptionHtml.replace(/<[^>]+>/g, ' ');
+        detailFails.delete(id);
+      } else if (RETRYABLE(d.status) && (detailFails.get(id) || 0) < 2) {
+        // Try this job again later, and give LinkedIn / the connection a moment.
+        detailFails.set(id, (detailFails.get(id) || 0) + 1);
+        detailWanted.push(id);
+        await sleep(d.status === 429 ? 15000 : 5000);
+        continue;
+      }
+      d.failedAt = Date.now();
       details.set(id, d);
       render();
       if (!running && $('status').className !== 'warn' && filtersOn()) status(summary());
-      if (d.status === 429) { detailWanted.unshift(id); await sleep(15000); }
     } catch {
+      detailWanted.push(id); // the local server didn't answer; try again shortly
       await sleep(5000);
     }
   }
@@ -1090,7 +1243,14 @@ async function pumpDetails() {
 
 // Details for every job in the search, newest first (filters need them).
 function queueVisibleDetails() {
-  for (const j of searchJobs()) if (!details.has(j.id)) queueDetail(j.id, false);
+  for (const j of searchJobs()) {
+    const d = details.get(j.id);
+    // Jobs whose details failed get another go after two minutes.
+    if (!d || (d.status !== 200 && d.status !== 404 && Date.now() - (d.failedAt || 0) > 120_000)) {
+      if (d) { details.delete(j.id); detailFails.delete(j.id); }
+      queueDetail(j.id, false);
+    }
+  }
 }
 
 // ---- resume dialog ----
@@ -1137,11 +1297,16 @@ updateResumeButton();
 // ---- wiring ----
 $('form').addEventListener('submit', (e) => { e.preventDefault(); search(); });
 $('stop').addEventListener('click', () => { stopRequested = true; });
-for (const id of ['exclude', 'workplace', 'sort', 'fVisa', 'fMatch', 'fIndustry', 'fSeniority', 'fType', 'fApplicants', 'fSalary']) {
-  $(id).addEventListener(id === 'exclude' ? 'input' : 'change', () => { saveForm(); render(); if (searchKey) status(summary()); });
+function onFilterChange() { saveForm(); render(); if (searchKey) status(summary()); }
+msInit('fIndustry', [], 'All industries');
+msInit('fSeniority', ['Internship', 'Entry level', 'Associate', 'Mid-Senior level', 'Director', 'Executive'].map((v) => [v, v]), 'Any');
+msInit('fType', ['Full-time', 'Contract', 'Part-time', 'Temporary', 'Internship'].map((v) => [v, v]), 'Any');
+for (const id of ['exclude', 'workplace', 'sort', 'fVisa', 'fMatch', 'fApplicants', 'fSalary']) {
+  $(id).addEventListener(id === 'exclude' ? 'input' : 'change', onFilterChange);
 }
 $('clearFilters').addEventListener('click', () => {
-  for (const id of ['fIndustry', 'fSeniority', 'fType', 'fApplicants', 'fVisa', 'fMatch', 'exclude']) $(id).value = '';
+  for (const id of ['fApplicants', 'fVisa', 'fMatch', 'exclude']) $(id).value = '';
+  for (const id of FORM_MULTI) msSet(id, []);
   $('fSalary').checked = false;
   saveForm(); render(); if (!running && searchKey) status(summary());
 });
@@ -1156,7 +1321,12 @@ setInterval(() => { if (!running) { detailShownSig = ''; render(); } }, 30_000);
 
 const saved = store.get('form', null);
 if (saved) {
-  for (const k of FORM_FIELDS) if (saved[k] != null && k !== 'fIndustry') $(k).value = saved[k];
+  for (const k of FORM_FIELDS) if (saved[k] != null) $(k).value = saved[k];
+  if (saved.max === '200') $('max').value = '1000'; // old default was too low to see every job
+  for (const k of FORM_MULTI) {
+    const v = saved.multi?.[k] ?? (saved[k] ? [saved[k]] : []); // older saves had one value
+    msSet(k, v);
+  }
   for (const k of FORM_CHECKS) if (saved[k] != null) $(k).checked = saved[k];
   if (saved.auto == null) $('auto').checked = true;
 }
